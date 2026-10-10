@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 
+// Sandboxed Electron preloads require CommonJS, even when the main process uses ESM.
+
 contextBridge.exposeInMainWorld("oscar", {
   getAppInfo: () => ipcRenderer.invoke("app:getInfo"),
   getSetupState: () => ipcRenderer.invoke("setup:getState"),

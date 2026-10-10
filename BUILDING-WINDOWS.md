@@ -28,6 +28,14 @@ The script:
 6. builds the React/Vite renderer
 7. launches Electron
 
+The bootstrap and packaging scripts stop on failed native commands. The development
+script clears an inherited `ELECTRON_RUN_AS_NODE` flag for the launch and restores
+it afterward. Development launches use the root application package so the header
+reports the product version rather than the Electron runtime version.
+
+For actual results and remaining manual checks on Windows, see
+[`WINDOWS-VALIDATION.md`](WINDOWS-VALIDATION.md).
+
 On first launch choose **Try demo data**. This generates a synthetic 14-night AirSense 11-style card and imports it through the same ResMed importer used for real media.
 
 ## Create the Windows installer
@@ -101,6 +109,7 @@ After **Try demo data**:
 - Statistics should show 14 used days and settings-history periods
 - session enable/disable should immediately recalculate Daily and chart data
 - graph order, size, pins and saved zoom ranges should persist after restart
+- zoom into a range, optionally enter a **Graph view name**, and choose **Save view**; an empty name uses the time range
 - **Diagnostics** should create a ZIP without therapy/database content
 
 See `WINDOWS-ACCEPTANCE-CHECKLIST.md` for a fuller checklist.
@@ -132,7 +141,12 @@ The desktop **Diagnostics** action creates a ZIP containing app/runtime/OS/schem
 
 ## Current packaging limitation
 
-The source release is validated in this environment, but the final `.exe` must be produced on a Windows machine with the Electron/Vite npm packages installed. The `windows-package.ps1` script is the release gate for that step.
+The `.exe` is built on Windows with the Electron/Vite npm packages installed.
+The `windows-package.ps1` script is the release gate for that step. The 2026-10-10
+validation built, installed, launched, restarted, and uninstalled an unsigned NSIS
+package using synthetic data. Normal uninstall retains application user data;
+the validation used an isolated user-data directory. See `WINDOWS-VALIDATION.md`
+for the scope of those checks and the remaining acceptance work.
 
 
 ## Windows headless service

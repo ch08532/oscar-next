@@ -561,6 +561,7 @@ export function GraphStack({ data, daily }: { data: ChartQueryResult; daily: Dai
   const [detailLoading, setDetailLoading] = useState(false);
   const [graphPreferences, setGraphPreferences] = useState<GraphPreference[]>([]);
   const [bookmarks, setBookmarks] = useState<GraphBookmark[]>([]);
+  const [bookmarkName, setBookmarkName] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -649,11 +650,11 @@ export function GraphStack({ data, daily }: { data: ChartQueryResult; daily: Dai
 
   async function saveViewportBookmark() {
     const suggested = `${timeLabel(viewport.startMs, true)}–${timeLabel(viewport.endMs, true)}`;
-    const name = window.prompt("Name this graph view", suggested)?.trim();
-    if (!name) return;
+    const name = bookmarkName.trim() || suggested;
     try {
       const created = await window.oscar.createGraphBookmark(data.machineId, data.date, name, viewport.startMs, viewport.endMs);
       setBookmarks((current) => [...current, created].sort((a, b) => a.startMs - b.startMs || a.name.localeCompare(b.name)));
+      setBookmarkName("");
     } catch { /* keep graph interaction usable if bookmark storage fails */ }
   }
 
@@ -694,11 +695,14 @@ export function GraphStack({ data, daily }: { data: ChartQueryResult; daily: Dai
   const detailCoversViewport = detailData.rangeStartMs <= viewport.startMs + 1 && detailData.rangeEndMs >= viewport.endMs - 1;
   const renderData = fullView || detailCoversViewport ? detailData : data;
   const interaction: InteractionProps = { viewport, bounds, cursorMs, setViewport, setCursorMs, resetViewport: () => setViewport(bounds) };
-  const graphEntries = GRAPHS.map((definition) => ({ definition, series: renderData.series.filter((item) => definition.channelIds.includes(item.channelId)) })).filter((entry) => entry.series.length > 0);
+  // Keep rows and zoom controls available when a detail window falls in a data gap.
+  const graphEntries = GRAPHS.filter((definition) => data.series.some((item) => definition.channelIds.includes(item.channelId)))
+    .map((definition) => ({ definition, series: renderData.series.filter((item) => definition.channelIds.includes(item.channelId)) }));
   const eventChannelIds = EVENT_CHANNELS as readonly number[];
   const eventSeries = renderData.series.filter((item) => eventChannelIds.includes(item.channelId));
+  const hasEventChannels = data.series.some((item) => eventChannelIds.includes(item.channelId));
   const graphRows = [
-    ...(eventSeries.length > 0 ? [{ key: "events", kind: "events" as const, baseOrder: 0 }] : []),
+    ...(hasEventChannels ? [{ key: "events", kind: "events" as const, baseOrder: 0 }] : []),
     ...graphEntries.map((entry, index) => ({ key: entry.definition.key, kind: "graph" as const, baseOrder: index + 1, entry })),
   ].sort((a, b) => {
     const aPref = graphPreference(a.key);
@@ -731,7 +735,7 @@ export function GraphStack({ data, daily }: { data: ChartQueryResult; daily: Dai
     return { source, returned, decimated };
   }, [renderData.series]);
 
-  if (graphEntries.length === 0 && eventSeries.length === 0) return <div className="graph-empty">No detailed chart data is stored for this therapy day.</div>;
+  if (graphEntries.length === 0 && !hasEventChannels) return <div className="graph-empty">No detailed chart data is stored for this therapy day.</div>;
 
   return <div className="graph-stack">
     <div className="graph-toolbar">
@@ -742,6 +746,7 @@ export function GraphStack({ data, daily }: { data: ChartQueryResult; daily: Dai
     </div>
     <div className="graph-layout-toolbar">
       <div className="bookmark-actions">
+        <input aria-label="Graph view name" placeholder="Graph view name (optional)" value={bookmarkName} onChange={(event) => setBookmarkName(event.target.value)} disabled={!zoomed} />
         <button type="button" className="secondary" disabled={!zoomed} onClick={() => void saveViewportBookmark()}>Save view</button>
         <select aria-label="Saved graph views" defaultValue="" onChange={(event) => {
           const bookmark = bookmarks.find((item) => item.id === Number(event.target.value));

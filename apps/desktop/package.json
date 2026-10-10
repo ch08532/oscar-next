@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "electron": "electron ../../dist/src/desktop/main.js",
+    "electron": "electron ../..",
     "stage": "node scripts/stage-backend.mjs",
     "dist:win": "electron-builder --config electron-builder.yml --win nsis --x64",
     "build:headless": "vite build --config vite.headless.config.ts && node scripts/finalize-headless.mjs",

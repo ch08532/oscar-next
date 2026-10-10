@@ -121,7 +121,7 @@ ResMed SD card / copied card folder
 Electron backend:
 
 - `src/desktop/main.ts`
-- `src/desktop/preload.ts`
+- `src/desktop/preload.cts` (sandbox-compatible CommonJS output)
 - `src/desktop/removable-media.ts`
 
 React/Vite:
@@ -271,6 +271,11 @@ The current UI source implements or scaffolds:
 - headless/browser REST adapter
 
 Important caveat: much of the React/Electron work has been statically type-checked and exercised via backend/demo tests, but **the project still needs thorough real Windows runtime/UI validation**.
+
+The 2026-10-10 Windows validation exercised Electron demo startup and an unsigned
+NSIS install/restart/uninstall. See `WINDOWS-VALIDATION.md` for exact results,
+remaining manual UI checks, dependency risks, and the Administrator blocker for
+native service validation.
 
 ## API / security model
 

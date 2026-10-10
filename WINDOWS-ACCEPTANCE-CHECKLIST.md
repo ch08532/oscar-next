@@ -1,6 +1,6 @@
 # OSCAR Next 2.3 — Windows acceptance checklist
 
-Use this after running `scripts\windows-dev.ps1` or installing the locally built 2.0 installer.
+Use this after running `scripts\windows-dev.ps1` or installing the locally built 2.3.0 installer.
 
 ## 1. Startup
 

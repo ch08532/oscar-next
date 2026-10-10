@@ -96,7 +96,7 @@ async function createWindow(): Promise<void> {
     minWidth: 1000,
     minHeight: 700,
     webPreferences: {
-      preload: join(moduleDir, "preload.js"),
+      preload: join(moduleDir, "preload.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
