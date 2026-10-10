@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
-import type { StatisticsSummary, StoredMachineSummary } from "./types";
+import { useEffect, useMemo, useState } from "react";
+import type { OverviewDaySummary, StatisticsSummary, StoredMachineSummary } from "./types";
+import { TherapyDateRange } from "./TherapyDateRange";
 
 interface StatisticsProps {
   machine: StoredMachineSummary;
@@ -49,6 +50,27 @@ export function Statistics({ machine, machineId, defaultEndDate }: StatisticsPro
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
   const [exportMessage, setExportMessage] = useState<string>();
+  const [history, setHistory] = useState<OverviewDaySummary[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState<string>();
+
+  useEffect(() => {
+    setEndDate(initialEnd);
+    setStartDate(machineFirst > addDays(initialEnd, -29) ? machineFirst : addDays(initialEnd, -29));
+  }, [machineId, machineFirst, initialEnd]);
+
+  // The timeline shows the full machine history even when the report is narrowed.
+  useEffect(() => {
+    let cancelled = false;
+    setHistory([]);
+    setHistoryLoading(true);
+    setHistoryError(undefined);
+    window.oscar.getOverview(machineId, machineFirst, machineLast)
+      .then((value) => { if (!cancelled) setHistory(value); })
+      .catch((cause) => { if (!cancelled) setHistoryError(cause instanceof Error ? cause.message : String(cause)); })
+      .finally(() => { if (!cancelled) setHistoryLoading(false); });
+    return () => { cancelled = true; };
+  }, [machineId, machineFirst, machineLast]);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,8 +88,6 @@ export function Statistics({ machine, machineId, defaultEndDate }: StatisticsPro
     return [...ids].sort((a, b) => a - b);
   }, [stats]);
 
-  function applyPreset(days: number) { setStartDate(machineFirst > addDays(endDate, -(days - 1)) ? machineFirst : addDays(endDate, -(days - 1))); }
-
   async function exportFile(kind: "csv" | "pdf") {
     try {
       setExportMessage(undefined); setError(undefined);
@@ -79,16 +99,12 @@ export function Statistics({ machine, machineId, defaultEndDate }: StatisticsPro
   }
 
   return <>
-    <section className="overview-range-toolbar panel statistics-toolbar">
-      <div className="overview-range-fields">
-        <label>Start date<input type="date" min={machineFirst} max={endDate} value={startDate} onChange={(event: ChangeEvent<HTMLInputElement>) => setStartDate(event.target.value)} /></label>
-        <label>End date<input type="date" min={startDate} max={machineLast} value={endDate} onChange={(event: ChangeEvent<HTMLInputElement>) => setEndDate(event.target.value)} /></label>
-      </div>
-      <div className="range-presets"><span>Range</span><button className="secondary" onClick={() => applyPreset(7)}>7 days</button><button className="secondary" onClick={() => applyPreset(30)}>30 days</button><button className="secondary" onClick={() => applyPreset(90)}>90 days</button><button className="secondary" onClick={() => setStartDate(machineFirst)}>All</button></div>
-      <div className="statistics-export"><button className="secondary" onClick={() => exportFile("csv")}>Export CSV</button><button onClick={() => exportFile("pdf")}>Export PDF</button></div>
-    </section>
+    <TherapyDateRange firstDate={machineFirst} lastDate={machineLast} startDate={startDate} endDate={endDate}
+      days={history} loading={historyLoading} onChange={(start, end) => { setStartDate(start); setEndDate(end); }}
+      actions={<div className="statistics-export"><button className="secondary" onClick={() => exportFile("csv")}>Export CSV</button><button onClick={() => exportFile("pdf")}>Export PDF</button></div>} />
 
     {error && <div className="error">{error}</div>}
+    {historyError && <div className="error">Unable to load therapy history: {historyError}</div>}
     {exportMessage && <div className="success">{exportMessage}</div>}
     {loading && <div className="loading">Calculating statistics…</div>}
 

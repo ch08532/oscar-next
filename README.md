@@ -219,6 +219,7 @@ Implemented:
   - nightly average/95th-percentile pressure and leak trend charts
   - database open defaults to the latest stored therapy night instead of the computer's current date
   - complete Statistics screen with 7/30/90-day/full-history range selection
+  - Overview and Statistics share the therapy-history date filter, including availability marks, draggable handles, keyboard controls, date fields, and presets; All restores both history endpoints
   - range-level used days, ≥4-hour adherence, total/average/median usage, AHI and RDI
   - aggregate OA/CA/H/UA/RERA counts and event indices per therapy hour
   - pressure/leak average, median, 95th-percentile and maximum statistics across the selected range

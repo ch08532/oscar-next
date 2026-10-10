@@ -1,10 +1,10 @@
-import { useRef, type KeyboardEvent, type PointerEvent } from "react";
-import { dateAtOffset, dayOffset, rangeHandleOffset } from "./overview-date-range";
+import { useRef, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { clampRangeOffset, dateAtOffset, dayOffset, keyboardRangeOffset, presetDateRange, rangeHandleOffset, type RangeEdge } from "./overview-date-range";
 import type { OverviewDaySummary } from "./types";
 
-type Edge = "start" | "end";
+type Edge = RangeEdge;
 
-export function OverviewDateRange({ firstDate, lastDate, startDate, endDate, days, loading, onChange }: {
+export function TherapyDateRange({ firstDate, lastDate, startDate, endDate, days, loading, onChange, actions }: {
   firstDate: string;
   lastDate: string;
   startDate: string;
@@ -12,6 +12,7 @@ export function OverviewDateRange({ firstDate, lastDate, startDate, endDate, day
   days: readonly OverviewDaySummary[];
   loading: boolean;
   onChange(start: string, end: string): void;
+  actions?: ReactNode;
 }) {
   const track = useRef<HTMLDivElement>(null);
   const drag = useRef<Edge | undefined>(undefined);
@@ -23,7 +24,7 @@ export function OverviewDateRange({ firstDate, lastDate, startDate, endDate, day
   const disabled = loading || days.length === 0 || last === 0 || !startDate || !endDate;
 
   function update(edge: Edge, offset: number) {
-    const next = edge === "start" ? Math.max(0, Math.min(end, offset)) : Math.max(start, Math.min(last, offset));
+    const next = clampRangeOffset(offset, last, edge === "start" ? end : start, edge);
     onChange(edge === "start" ? dateAtOffset(firstDate, next) : startDate,
       edge === "end" ? dateAtOffset(firstDate, next) : endDate);
   }
@@ -49,15 +50,15 @@ export function OverviewDateRange({ firstDate, lastDate, startDate, endDate, day
 
   function keyDown(edge: Edge, event: KeyboardEvent<HTMLButtonElement>) {
     const current = edge === "start" ? start : end;
-    const next: Record<string, number> = { ArrowLeft: current - 1, ArrowDown: current - 1, ArrowRight: current + 1, ArrowUp: current + 1, PageDown: current - 7, PageUp: current + 7, Home: edge === "start" ? 0 : start, End: edge === "start" ? end : last };
-    if (next[event.key] === undefined) return;
+    const next = keyboardRangeOffset(event.key, current, last, edge === "start" ? end : start, edge);
+    if (next === undefined) return;
     event.preventDefault();
-    update(edge, next[event.key]!);
+    update(edge, next);
   }
 
-  function applyPreset(dayCount: number) {
-    const candidate = dateAtOffset(endDate, -(dayCount - 1));
-    onChange(candidate < firstDate ? firstDate : candidate, endDate);
+  function applyPreset(preset: 7 | 30 | 90 | "all") {
+    const next = presetDateRange(firstDate, lastDate, endDate, preset);
+    onChange(next.startDate, next.endDate);
   }
 
   return <section className="overview-date-range" aria-label="Therapy history date range" aria-busy={loading}>
@@ -67,7 +68,8 @@ export function OverviewDateRange({ firstDate, lastDate, startDate, endDate, day
         <label>Start date<input type="date" min={firstDate} max={endDate} value={startDate} onChange={(event) => onChange(event.target.value, endDate)} /></label>
         <label>End date<input type="date" min={startDate} max={lastDate} value={endDate} onChange={(event) => onChange(startDate, event.target.value)} /></label>
       </div>
-      <div className="range-presets"><span>Range</span>{[7, 30, 90].map((count) => <button key={count} type="button" className="secondary" onClick={() => applyPreset(count)}>{count} days</button>)}<button type="button" className="secondary" onClick={() => onChange(firstDate, lastDate)}>All</button></div>
+      <div className="range-presets"><span>Range</span>{([7, 30, 90] as const).map((count) => <button key={count} type="button" className="secondary" onClick={() => applyPreset(count)}>{count} days</button>)}<button type="button" className="secondary" onClick={() => applyPreset("all")}>All</button></div>
+      {actions}
     </div>
     <p id="overview-date-help">Drag either handle to select dates, or use the arrow keys. Marks show included sessions, including summary-only nights.</p>
     <div ref={track} className={`overview-date-track${start === end ? " single-day" : ""}`}>
@@ -78,7 +80,7 @@ export function OverviewDateRange({ firstDate, lastDate, startDate, endDate, day
           const width = Math.max(1, Math.min(18, 800 / (last + 1)));
           const hasData = day.sessionCount > 0;
           return <rect key={day.date} x={percent(offset) * 10 - width / 2} y={hasData ? 12 : 20} width={width} height={hasData ? 24 : 8} rx="1" className={`${hasData ? "has-data" : "no-data"}${day.date >= startDate && day.date <= endDate ? " selected" : ""}`}>
-            <title>{day.date}: {hasData ? `${day.sessionCount} included session(s), ${day.usageHours.toFixed(2)} h` : "No included sessions"}</title>
+            <title>{`${day.date}: ${hasData ? `${day.sessionCount} included session(s), ${day.usageHours.toFixed(2)} h` : "No included sessions"}`}</title>
           </rect>;
         })}
       </svg>

@@ -297,3 +297,59 @@ Validation: `npm test` PASS (81 tests), `npm run desktop:build` PASS,
 `npm --prefix apps/desktop run build:headless` PASS, and renderer
 `tsc.cmd --noEmit` PASS. No new test was added for this presentation-only move.
 Electron visual validation and packaging were not repeated for this adjustment.
+
+### Follow-up — Overview unit coverage (2026-10-10)
+
+- Environment: Windows, Node `v24.21.0`, npm `11.19.0`. Reading the Windows
+  edition/version with `Get-CimInstance Win32_OperatingSystem` returned
+  `Access denied`; the edition/version was not independently verified here.
+- Dependency checks: `npm install --ignore-scripts --no-audit --no-fund` and
+  `npm --prefix apps/desktop install --ignore-scripts --no-audit --no-fund`
+  PASS. Install lifecycle scripts were intentionally not rerun.
+- Baseline `npm run verify`: PASS, 81 tests and synthetic demo smoke.
+- Extracted existing range-control and summary calculations into pure functions
+  used by the shared renderer, without adding dependencies. The keyboard helper
+  explicitly ignores unknown keys rather than looking them up on a plain object.
+- Added 39 unit tests: inclusive and clamped presets, All restoring both ends,
+  keyboard steps and bounds, single-day ranges, pointer rounding, backwards and
+  leap-year date arithmetic, inclusive history filtering, empty/unused days,
+  usage-weighted AHI/RDI, four-hour adherence, finite nightly pressure/leak
+  averages, summary-only indices, and recalculation without mutating history.
+- Final `npm run verify`: PASS, 120 tests and synthetic demo smoke.
+- `npm --prefix apps/desktop run build`,
+  `npm --prefix apps/desktop run build:headless`, and
+  `apps/desktop/node_modules/.bin/tsc.cmd --noEmit -p apps/desktop/tsconfig.json`:
+  PASS. `git diff --check`: PASS.
+- Focused coverage command: `node --test --experimental-test-coverage --test-coverage-include='dist/apps/desktop/src/overview-*.js' dist/tests/overview-date-range.test.js dist/tests/overview-summary.test.js`.
+  PASS, 41 focused tests; both `overview-date-range.js` and
+  `overview-summary.js` report 100% line, branch, and function coverage.
+  Run `npm run build` first to refresh the compiled test files.
+- Coverage applies to these two logic modules, not the complete Overview UI.
+  React event wiring, request counts/cancellation, physical pointer capture,
+  Electron visual checks, installer packaging, and service validation were not
+  exercised by this follow-up.
+
+### Follow-up — shared Overview/Statistics date filter (2026-10-10)
+
+- Extracted Overview's widget as `TherapyDateRange` and reused it in Statistics.
+  Both pages now show the same timeline, date inputs, presets, draggable handles,
+  and keyboard controls. Statistics export actions occupy the widget's optional
+  actions slot, and the controls wrap on narrower screens.
+- Statistics loads full-machine Overview history for availability marks separately
+  from its selected-range Statistics query. A report refresh does not disable
+  the timeline or reload its history. History errors are displayed separately.
+  Selected dates still drive the existing backend report and export APIs.
+- Statistics resets its initial range when the selected machine/date changes.
+  All uses the shared tested preset behavior to restore both history endpoints.
+- Baseline and final `npm run verify`: PASS, 120 tests and synthetic demo smoke.
+- Desktop/headless renderer builds, renderer TypeScript check, and
+  `git diff --check`: PASS.
+- Ad hoc React server-render checks with synthetic props: PASS for one shared
+  date filter per page, two slider handles, date fields, all presets, Statistics
+  export buttons, availability/gap marks, and selected-day styling. This check
+  surfaced a React warning about multiple SVG title children; the shared widget
+  now provides a single tooltip string.
+- Physical dragging, visual layout in Electron/browser, and export interactions
+  were not manually exercised in this follow-up. Existing range unit tests cover
+  the reused date arithmetic, keyboard limits, and All behavior; no new unit test
+  was added solely to assert component reuse.

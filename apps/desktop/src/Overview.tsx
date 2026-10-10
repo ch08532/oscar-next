@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { OverviewDaySummary, StoredMachineSummary } from "./types";
-import { OverviewDateRange } from "./OverviewDateRange";
+import { TherapyDateRange } from "./TherapyDateRange";
+import { filterOverviewDays, summarizeOverviewDays } from "./overview-summary";
 
 type OverviewMetric = "usage" | "ahi" | "events" | "pressure" | "leak";
 
@@ -31,14 +32,6 @@ function addDays(date: string, amount: number): string {
 
 function therapyDateFromTimestamp(ms: number): string {
   return dateKeyFromMs(ms - 12 * 3_600_000);
-}
-
-function average(values: readonly number[]): number {
-  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
-}
-
-function finite(values: readonly (number | undefined)[]): number[] {
-  return values.filter((value): value is number => value !== undefined && Number.isFinite(value));
 }
 
 function formatHours(hours: number): string {
@@ -171,27 +164,8 @@ export function Overview({ machine, machineId, defaultEndDate }: OverviewProps) 
     return () => { cancelled = true; };
   }, [machineId, machineFirst, machineLast]);
 
-  const days = useMemo(() => history.filter((day) => day.date >= startDate && day.date <= endDate), [history, startDate, endDate]);
-
-  const stats = useMemo(() => {
-    const used = days.filter((day) => day.usageHours > 0);
-    const totalUsage = used.reduce((sum, day) => sum + day.usageHours, 0);
-    const weighted = (selector: (day: OverviewDaySummary) => number) => totalUsage > 0
-      ? used.reduce((sum, day) => sum + selector(day) * day.usageHours, 0) / totalUsage : 0;
-    const pressure95 = finite(used.map((day) => day.pressure95));
-    const leak95 = finite(used.map((day) => day.leak95));
-    return {
-      usedDays: used.length,
-      totalDays: days.length,
-      totalUsage,
-      averageUsage: used.length ? totalUsage / used.length : 0,
-      ahi: weighted((day) => day.ahi),
-      rdi: weighted((day) => day.rdi),
-      compliantDays: used.filter((day) => day.usageHours >= 4).length,
-      pressure95: average(pressure95),
-      leak95: average(leak95),
-    };
-  }, [days]);
+  const days = useMemo(() => filterOverviewDays(history, startDate, endDate), [history, startDate, endDate]);
+  const stats = useMemo(() => summarizeOverviewDays(days), [days]);
 
   const usageSeries: SeriesDefinition[] = [{ label: "Usage", getValue: (day) => day.usageHours, className: "series-usage" }];
   const ahiSeries: SeriesDefinition[] = [
@@ -215,7 +189,7 @@ export function Overview({ machine, machineId, defaultEndDate }: OverviewProps) 
   ];
 
   return <>
-    <OverviewDateRange firstDate={machineFirst} lastDate={machineLast} startDate={startDate} endDate={endDate} days={history} loading={loading} onChange={(start, end) => { setStartDate(start); setEndDate(end); }} />
+    <TherapyDateRange firstDate={machineFirst} lastDate={machineLast} startDate={startDate} endDate={endDate} days={history} loading={loading} onChange={(start, end) => { setStartDate(start); setEndDate(end); }} />
 
     {error && <div className="error">{error}</div>}
     {loading && <div className="loading">Loading overview data…</div>}

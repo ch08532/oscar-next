@@ -64,7 +64,7 @@ button.secondary { background: white; color: #1769aa; border: 1px solid #bfcbd6;
 .overview-date-range { margin: 12px 0 20px; padding: 16px 24px; background: white; border: 1px solid #dfe6ec; border-radius: 10px; }
 .overview-date-heading { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 13px; }
 .overview-date-heading span, .overview-date-range p { color: #607487; font-size: 12px; }
-.overview-date-controls { margin-bottom: 18px; }
+.overview-date-controls { margin-bottom: 18px; flex-wrap: wrap; }
 .overview-date-range p { margin: 8px 0 12px; }
 .overview-date-track { position: relative; height: 68px; margin: 0 12px; background: #eef2f5; border-radius: 6px; }
 .overview-date-selection { position: absolute; top: 0; bottom: 0; background: #d8eaf7; border-left: 1px solid #1769aa; border-right: 1px solid #1769aa; }
@@ -134,7 +134,6 @@ button.secondary { background: white; color: #1769aa; border: 1px solid #bfcbd6;
   .overview-chart-card { overflow-x: auto; }
 }
 
-.statistics-toolbar { margin-top: 16px; flex-wrap: wrap; }
 .statistics-export { display: flex; gap: 8px; margin-left: auto; }
 .statistics-metrics { grid-template-columns: repeat(7, minmax(125px, 1fr)); }
 .statistics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
