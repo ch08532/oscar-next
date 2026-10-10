@@ -246,3 +246,54 @@ Outstanding risks/checks:
 
 The application/demo and Windows packaging path now run on this machine; the
 entire manual Windows acceptance checklist is **not complete**.
+
+## Follow-up — Overview date-range timeline (2026-10-10)
+
+Requested addition: show dates with therapy data in Overview and adjust the
+selected date range using draggable left/right handles.
+
+- Added the timeline to the shared React Overview screen, with daily marks and
+  tooltips, a selected-range band, separate start/end handles, and keyboard
+  controls (arrows: one day; Page Up/Down: seven days; Home/End: bounds).
+- Marks reflect included sessions, including summary-only nights. They do not
+  assert that detailed waveform/event files were imported. Days with no included
+  sessions have smaller outlined marks. Disabled-only days are shown as gaps.
+- Handles snap to therapy dates and cannot cross; a single-day range remains
+  selectable. Date fields, presets, metrics, and charts share the same range.
+  All now restores both the first and last stored therapy dates.
+- Existing OscarApi.getOverview supplies the full history once per machine/span;
+  selected summaries are filtered locally. Date selection is not a dependency of
+  the query effect, so dragging does not issue repeated history queries. Initial
+  loading may be slower for long histories; large real-card histories were not
+  performance-tested. No backend/API/schema or therapy-day semantics changed.
+- Baseline before this addition: `npm run verify` PASS, 79 tests and demo smoke.
+- Final: `npm run verify` PASS, **81 tests** and demo smoke. Added regression
+  tests cover day snapping, non-crossing bounds, outside-track dragging,
+  single-day bounds, DST-independent date arithmetic, leap days, and year changes.
+- `npm run desktop:build`, `npm --prefix apps/desktop run build:headless`, and
+  renderer `tsc.cmd --noEmit` all PASS. `git diff --check` PASS.
+- Actual Electron renderer checks with isolated synthetic data: 14 marks and
+  14/14 days initially; keyboard start shift gives 13/13; right-handle midpoint
+  movement gives a seven-day range; dragging left past right clamps to one day;
+  All restores both endpoints; seven-day preset stays synchronized. Screenshot
+  inspected for timeline layout.
+- Missing-day check: temporarily disabled the synthetic 2026-10-01 session through
+  preload, remounted Overview, and confirmed 13 data marks plus one outlined gap
+  with tooltip `2026-10-01: No included sessions`. Restored the session afterward.
+- Pointer checks used renderer PointerEvents with pointer-capture methods stubbed
+  only in the test instance; physical mouse/touch capture is not independently
+  validated. Screenshot/helper artifacts remain in ignored `.validation/`.
+- Browser/headless renderer builds passed; this follow-up did not repeat installer
+  packaging or native service validation. No real health database was modified.
+
+### Follow-up layout adjustment — unified date controls
+
+Moved the Overview start/end fields and 7/30/90/All presets into the therapy-history
+timeline component, above its draggable track. Removed the separate Overview
+filter panel. The component uses the same controlled date range and preserves
+preset behavior and date limits. Statistics keeps its existing layout.
+
+Validation: `npm test` PASS (81 tests), `npm run desktop:build` PASS,
+`npm --prefix apps/desktop run build:headless` PASS, and renderer
+`tsc.cmd --noEmit` PASS. No new test was added for this presentation-only move.
+Electron visual validation and packaging were not repeated for this adjustment.

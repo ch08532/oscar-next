@@ -61,6 +61,25 @@ button.secondary { background: white; color: #1769aa; border: 1px solid #bfcbd6;
 
 .overview-range-toolbar { margin-top: 16px; display: flex; align-items: end; justify-content: space-between; gap: 18px; }
 .overview-range-fields { display: flex; align-items: end; gap: 14px; }
+.overview-date-range { margin: 12px 0 20px; padding: 16px 24px; background: white; border: 1px solid #dfe6ec; border-radius: 10px; }
+.overview-date-heading { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 13px; }
+.overview-date-heading span, .overview-date-range p { color: #607487; font-size: 12px; }
+.overview-date-controls { margin-bottom: 18px; }
+.overview-date-range p { margin: 8px 0 12px; }
+.overview-date-track { position: relative; height: 68px; margin: 0 12px; background: #eef2f5; border-radius: 6px; }
+.overview-date-selection { position: absolute; top: 0; bottom: 0; background: #d8eaf7; border-left: 1px solid #1769aa; border-right: 1px solid #1769aa; }
+.overview-date-marks { position: absolute; top: 10px; width: 100%; height: 48px; overflow: visible; }
+.overview-date-marks rect { fill: #9caebc; }
+.overview-date-marks rect.selected { fill: #1769aa; }
+.overview-date-marks rect.no-data { fill: #eef2f5; stroke: #bfcbd6; stroke-width: 1; }
+.overview-date-handle { position: absolute; top: 12px; width: 24px; height: 44px; padding: 0; transform: translateX(-50%); border: 2px solid white; border-radius: 6px; background: #1769aa; box-shadow: 0 1px 5px #18223040; font-size: 24px; cursor: ew-resize; touch-action: none; user-select: none; }
+.overview-date-handle:focus-visible { outline: 3px solid #d97706; outline-offset: 3px; }
+.overview-date-track.single-day .start { top: -4px; height: 34px; }
+.overview-date-track.single-day .end { top: 38px; height: 34px; }
+.overview-date-axis { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 12px; font-size: 11px; color: #607487; }
+.overview-date-axis > span { display: flex; align-items: center; gap: 6px; }
+.overview-date-axis i { width: 9px; height: 9px; background: #1769aa; border-radius: 2px; }
+.overview-date-axis i.gap { background: #eef2f5; border: 1px solid #bfcbd6; margin-left: 8px; }
 .overview-range-toolbar label { display: grid; gap: 6px; color: #607487; font-size: 12px; font-weight: 700; text-transform: uppercase; }
 .overview-range-toolbar input { min-width: 170px; border: 1px solid #cbd5df; border-radius: 7px; padding: 9px 10px; background: white; color: #182230; }
 .range-presets { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }

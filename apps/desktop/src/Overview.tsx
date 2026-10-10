@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { OverviewDaySummary, StoredMachineSummary } from "./types";
+import { OverviewDateRange } from "./OverviewDateRange";
 
 type OverviewMetric = "usage" | "ahi" | "events" | "pressure" | "leak";
 
@@ -145,8 +146,8 @@ export function Overview({ machine, machineId, defaultEndDate }: OverviewProps) 
   const machineLast = machine.lastSessionTime !== undefined ? therapyDateFromTimestamp(machine.lastSessionTime) : defaultEndDate;
   const [startDate, setStartDate] = useState(() => machineFirst > addDays(defaultEndDate, -29) ? machineFirst : addDays(defaultEndDate, -29));
   const [endDate, setEndDate] = useState(() => machineLast < defaultEndDate ? machineLast : defaultEndDate);
-  const [days, setDays] = useState<OverviewDaySummary[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [history, setHistory] = useState<OverviewDaySummary[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
   const [activeMetric, setActiveMetric] = useState<OverviewMetric>("usage");
 
@@ -158,17 +159,19 @@ export function Overview({ machine, machineId, defaultEndDate }: OverviewProps) 
   }, [machineId, machine.firstSessionTime, machine.lastSessionTime, defaultEndDate]);
 
   useEffect(() => {
-    if (!startDate || !endDate || endDate < startDate) return;
     let cancelled = false;
+    setHistory([]);
     setLoading(true);
     setError(undefined);
-    window.oscar.getOverview(machineId, startDate, endDate).then((result) => {
-      if (!cancelled) setDays(result);
+    window.oscar.getOverview(machineId, machineFirst, machineLast).then((result) => {
+      if (!cancelled) setHistory(result);
     }).catch((cause) => {
       if (!cancelled) setError(cause instanceof Error ? cause.message : String(cause));
     }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [machineId, startDate, endDate]);
+  }, [machineId, machineFirst, machineLast]);
+
+  const days = useMemo(() => history.filter((day) => day.date >= startDate && day.date <= endDate), [history, startDate, endDate]);
 
   const stats = useMemo(() => {
     const used = days.filter((day) => day.usageHours > 0);
@@ -189,11 +192,6 @@ export function Overview({ machine, machineId, defaultEndDate }: OverviewProps) 
       leak95: average(leak95),
     };
   }, [days]);
-
-  function applyPreset(dayCount: number) {
-    const candidate = addDays(endDate, -(dayCount - 1));
-    setStartDate(candidate < machineFirst ? machineFirst : candidate);
-  }
 
   const usageSeries: SeriesDefinition[] = [{ label: "Usage", getValue: (day) => day.usageHours, className: "series-usage" }];
   const ahiSeries: SeriesDefinition[] = [
@@ -217,13 +215,7 @@ export function Overview({ machine, machineId, defaultEndDate }: OverviewProps) 
   ];
 
   return <>
-    <section className="overview-range-toolbar panel">
-      <div className="overview-range-fields">
-        <label>Start date<input type="date" min={machineFirst} max={endDate} value={startDate} onChange={(event: ChangeEvent<HTMLInputElement>) => setStartDate(event.target.value)} /></label>
-        <label>End date<input type="date" min={startDate} max={machineLast} value={endDate} onChange={(event: ChangeEvent<HTMLInputElement>) => setEndDate(event.target.value)} /></label>
-      </div>
-      <div className="range-presets"><span>Range</span><button className="secondary" onClick={() => applyPreset(7)}>7 days</button><button className="secondary" onClick={() => applyPreset(30)}>30 days</button><button className="secondary" onClick={() => applyPreset(90)}>90 days</button><button className="secondary" onClick={() => setStartDate(machineFirst)}>All</button></div>
-    </section>
+    <OverviewDateRange firstDate={machineFirst} lastDate={machineLast} startDate={startDate} endDate={endDate} days={history} loading={loading} onChange={(start, end) => { setStartDate(start); setEndDate(end); }} />
 
     {error && <div className="error">{error}</div>}
     {loading && <div className="loading">Loading overview data…</div>}

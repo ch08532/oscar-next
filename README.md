@@ -210,6 +210,8 @@ Implemented:
   - one Event Flags lane per OA/H/CA/UA/RERA/CSR event type, even across split sessions
   - CSR span rendering from stored durations
   - working Overview navigation and selectable 7/30/90-day or full-history ranges
+  - Overview therapy-history timeline with per-day availability marks and draggable start/end handles; arrow keys step by a day and Page Up/Down by a week
+  - start/end date fields and range presets are integrated into the timeline widget and stay synchronized with summaries and trends; All restores both ends of the machine history
   - Overview summary cards for days used, average/total usage, aggregate AHI/RDI, ≥4-hour adherence, average pressure 95%, and average leak 95%
   - Overview usage bars with a 4-hour reference line
   - AHI/RDI trend chart with a 5-events/hour reference line
