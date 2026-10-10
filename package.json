@@ -1,0 +1,43 @@
+{
+  "name": "oscar-next",
+  "version": "2.3.0",
+  "private": true,
+  "type": "module",
+  "description": "TypeScript migration foundation for OSCAR CPAP data analysis",
+  "license": "GPL-3.0-only",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "clean": "node scripts/clean.mjs",
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test dist/tests/*.test.js",
+    "cli": "npm run build && node dist/src/cli/main.js",
+    "desktop:install": "npm --prefix apps/desktop install",
+    "desktop:build": "npm run build && npm --prefix apps/desktop run build",
+    "desktop:run": "npm --prefix apps/desktop run electron",
+    "desktop:stage": "npm --prefix apps/desktop run stage",
+    "desktop:package:win": "npm run build && npm --prefix apps/desktop run build && npm --prefix apps/desktop run stage && npm --prefix apps/desktop run dist:win",
+    "demo:smoke": "npm run build && node dist/src/cli/main.js demo-smoke",
+    "demo:card": "npm run build && node dist/src/cli/main.js demo-card ./oscar-next-demo-card",
+    "verify": "npm test && npm run demo:smoke",
+    "windows:check": "node scripts/windows-check.mjs",
+    "windows:dev": "powershell -ExecutionPolicy Bypass -File scripts/windows-dev.ps1",
+    "windows:package": "powershell -ExecutionPolicy Bypass -File scripts/windows-package.ps1",
+    "api": "npm run build && node dist/src/api/main.js",
+    "headless:build": "npm run build && npm --prefix apps/desktop run build:headless",
+    "headless": "npm run headless:build && node dist/src/headless/main.js",
+    "desktop:package:linux:arm64": "npm run build && npm --prefix apps/desktop run build && npm --prefix apps/desktop run stage && npm --prefix apps/desktop run dist:linux:arm64",
+    "pi:desktop:package": "bash scripts/pi-desktop-package.sh",
+    "pi:headless:install": "bash scripts/pi-headless-install.sh",
+    "windows:headless:install": "powershell -ExecutionPolicy Bypass -File scripts/windows-headless-install.ps1",
+    "windows:headless:start": "powershell -ExecutionPolicy Bypass -File scripts/windows-headless-start.ps1",
+    "windows:headless:stop": "powershell -ExecutionPolicy Bypass -File scripts/windows-headless-stop.ps1",
+    "windows:headless:status": "powershell -ExecutionPolicy Bypass -File scripts/windows-headless-status.ps1",
+    "windows:headless:uninstall": "powershell -ExecutionPolicy Bypass -File scripts/windows-headless-uninstall.ps1"
+  },
+  "main": "dist/src/desktop/main.js",
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

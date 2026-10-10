@@ -1,0 +1,2515 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OSCAR Next API",
+    "version": "2.3.0",
+    "description": "Local-first REST API for OSCAR Next CPAP data. OSCAR Next 2.2 adds a headless browser deployment for Raspberry Pi/Linux. Non-loopback binding requires a bearer token. File-system imports and removable-media watching are opt-in."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:3210",
+      "description": "Default local API server"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    },
+    {}
+  ],
+  "tags": [
+    {
+      "name": "System"
+    },
+    {
+      "name": "Profiles"
+    },
+    {
+      "name": "Machines"
+    },
+    {
+      "name": "Therapy"
+    },
+    {
+      "name": "Graphs"
+    },
+    {
+      "name": "Imports"
+    },
+    {
+      "name": "Reports",
+      "description": "CSV and printable reports"
+    }
+  ],
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "API health",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/profiles": {
+      "get": {
+        "tags": [
+          "Profiles"
+        ],
+        "summary": "List profiles",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Profile"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Profiles"
+        ],
+        "summary": "Create a profile",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "timeZone"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "timeZone": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/profiles/{profileId}": {
+      "patch": {
+        "tags": [
+          "Profiles"
+        ],
+        "summary": "Update a profile",
+        "parameters": [
+          {
+            "name": "profileId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "timeZone": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/profiles/{profileId}/machines": {
+      "get": {
+        "tags": [
+          "Machines"
+        ],
+        "summary": "List machines for a profile",
+        "parameters": [
+          {
+            "name": "profileId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MachineSummary"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/machines/{machineId}/time-settings": {
+      "get": {
+        "tags": [
+          "Machines"
+        ],
+        "summary": "Get machine timezone settings",
+        "parameters": [
+          {
+            "name": "machineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MachineTimeSettings"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Machines"
+        ],
+        "summary": "Set or clear a machine timezone override",
+        "parameters": [
+          {
+            "name": "machineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "timeZone": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "IANA timezone. Null/empty resets to the profile timezone."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MachineTimeSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/machines/{machineId}/daily/{date}": {
+      "get": {
+        "tags": [
+          "Therapy"
+        ],
+        "summary": "Get Daily therapy summary",
+        "parameters": [
+          {
+            "name": "machineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "date",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Therapy date (noon-to-noon for ResMed-compatible queries)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailySummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/machines/{machineId}/sessions/{sessionId}": {
+      "patch": {
+        "tags": [
+          "Therapy"
+        ],
+        "summary": "Enable or disable a session",
+        "parameters": [
+          {
+            "name": "machineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "enabled"
+                ],
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Updated"
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/machines/{machineId}/overview": {
+      "get": {
+        "tags": [
+          "Therapy"
+        ],
+        "summary": "Get Overview therapy trend data",
+        "parameters": [
+          {
+            "name": "machineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OverviewDaySummary"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/machines/{machineId}/statistics": {
+      "get": {
+        "tags": [
+          "Therapy"
+        ],
+        "summary": "Get aggregate therapy statistics",
+        "parameters": [
+          {
+            "name": "machineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatisticsSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/machines/{machineId}/charts/{date}": {
+      "get": {
+        "tags": [
+          "Therapy"
+        ],
+        "summary": "Get chart series for a therapy day",
+        "description": "Waveforms may be decimated to maxPointsPerSeries; event series are returned exactly. Typed arrays are serialized as JSON arrays.",
+        "parameters": [
+          {
+            "name": "machineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "date",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Therapy date (noon-to-noon for ResMed-compatible queries)."
+          },
+          {
+            "name": "channels",
+            "in": "query",
+            "required": true,
+            "description": "Comma-separated channel IDs.",
+            "schema": {
+              "type": "string",
+              "examples": [
+                "1,2,3"
+              ]
+            }
+          },
+          {
+            "name": "startMs",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "endMs",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "maxPointsPerSeries",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 10,
+              "maximum": 200000,
+              "default": 5000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChartQueryResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/machines/{machineId}/graphs/preferences": {
+      "get": {
+        "tags": [
+          "Graphs"
+        ],
+        "summary": "Get graph layout preferences",
+        "parameters": [
+          {
+            "name": "machineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GraphPreference"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/machines/{machineId}/graphs/preferences/{graphKey}": {
+      "put": {
+        "tags": [
+          "Graphs"
+        ],
+        "summary": "Update graph pin/height",
+        "parameters": [
+          {
+            "name": "machineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "graphKey",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "pinned": {
+                    "type": "boolean"
+                  },
+                  "height": {
+                    "type": "integer",
+                    "minimum": 100,
+                    "maximum": 520
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Updated"
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/machines/{machineId}/graphs/order": {
+      "put": {
+        "tags": [
+          "Graphs"
+        ],
+        "summary": "Set graph order",
+        "parameters": [
+          {
+            "name": "machineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "keys"
+                ],
+                "properties": {
+                  "keys": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Updated"
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/machines/{machineId}/graphs/bookmarks": {
+      "get": {
+        "tags": [
+          "Graphs"
+        ],
+        "summary": "List saved graph views",
+        "parameters": [
+          {
+            "name": "machineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GraphBookmark"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Graphs"
+        ],
+        "summary": "Create a saved graph view",
+        "parameters": [
+          {
+            "name": "machineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "date",
+                  "name",
+                  "startMs",
+                  "endMs"
+                ],
+                "properties": {
+                  "date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "startMs": {
+                    "type": "integer",
+                    "format": "int64"
+                  },
+                  "endMs": {
+                    "type": "integer",
+                    "format": "int64"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GraphBookmark"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/machines/{machineId}/graphs/bookmarks/{bookmarkId}": {
+      "delete": {
+        "tags": [
+          "Graphs"
+        ],
+        "summary": "Delete a saved graph view",
+        "parameters": [
+          {
+            "name": "machineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "bookmarkId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "500": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/imports/preview": {
+      "post": {
+        "tags": [
+          "Imports"
+        ],
+        "summary": "Preview CPAP media",
+        "description": "Requires the API server to be started with --allow-imports. sourcePath is a path on the API host.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "sourcePath"
+                ],
+                "properties": {
+                  "sourcePath": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ImportPreview"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/imports": {
+      "post": {
+        "tags": [
+          "Imports"
+        ],
+        "summary": "Import CPAP media into the configured database",
+        "description": "Requires --allow-imports. The sourcePath refers to the API host filesystem.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "sourcePath"
+                ],
+                "properties": {
+                  "sourcePath": {
+                    "type": "string"
+                  },
+                  "profileId": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Imported",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportStoreResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/state": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Get headless/application setup state",
+        "responses": {
+          "200": {
+            "description": "Setup state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "databaseOpen": {
+                      "type": "boolean"
+                    },
+                    "systemTimeZone": {
+                      "type": "string"
+                    },
+                    "profiles": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Profile"
+                      }
+                    },
+                    "activeProfile": {
+                      "oneOf": [
+                        {
+                          "$ref": "#/components/schemas/Profile"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "needsSetup": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "databaseOpen",
+                    "systemTimeZone",
+                    "profiles",
+                    "needsSetup"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/v1/active-profile": {
+      "get": {
+        "tags": [
+          "Profiles"
+        ],
+        "summary": "Get active profile",
+        "responses": {
+          "200": {
+            "description": "Active profile or null",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Profile"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Profiles"
+        ],
+        "summary": "Set active profile",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "profileId": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "profileId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Selected profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/v1/demo": {
+      "post": {
+        "tags": [
+          "Imports"
+        ],
+        "summary": "Create and import synthetic demo data",
+        "description": "Requires --allow-imports. Intended for acceptance testing and first-run demonstration.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "profileId": {
+                    "type": "integer"
+                  },
+                  "days": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 90
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Demo import result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportStoreResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Imports disabled"
+          }
+        }
+      }
+    },
+    "/api/v1/media/pending": {
+      "get": {
+        "tags": [
+          "Imports"
+        ],
+        "summary": "Get pending detected CPAP media",
+        "responses": {
+          "200": {
+            "description": "Detected media or null",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "volume": {
+                          "type": "object",
+                          "properties": {
+                            "rootPath": {
+                              "type": "string"
+                            },
+                            "label": {
+                              "type": "string"
+                            },
+                            "removable": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "rootPath"
+                          ]
+                        },
+                        "preview": {
+                          "$ref": "#/components/schemas/ImportPreview"
+                        }
+                      },
+                      "required": [
+                        "volume",
+                        "preview"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Imports"
+        ],
+        "summary": "Acknowledge pending detected media",
+        "responses": {
+          "204": {
+            "description": "Cleared"
+          }
+        }
+      }
+    },
+    "/api/v1/machines/{machineId}/reports/statistics.csv": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Download statistics CSV",
+        "parameters": [
+          {
+            "name": "machineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CSV report",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/machines/{machineId}/reports/statistics.html": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Get printable statistics HTML",
+        "parameters": [
+          {
+            "name": "machineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Printable HTML report",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/diagnostics": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Download privacy-safe diagnostic bundle",
+        "responses": {
+          "200": {
+            "description": "ZIP containing diagnostics and redacted logs; therapy data/database not included",
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "opaque"
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "details": {}
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "apiVersion",
+          "databaseOpen",
+          "importsEnabled"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok"
+          },
+          "apiVersion": {
+            "type": "string"
+          },
+          "databaseOpen": {
+            "type": "boolean"
+          },
+          "importsEnabled": {
+            "type": "boolean"
+          },
+          "mediaWatchEnabled": {
+            "type": "boolean"
+          },
+          "webUiEnabled": {
+            "type": "boolean"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "arch": {
+            "type": "string"
+          },
+          "autoImportMediaEnabled": {
+            "type": "boolean"
+          },
+          "mediaImportInFlight": {
+            "type": "boolean"
+          },
+          "lastAutomaticMediaImport": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "sourcePath": {
+                    "type": "string"
+                  },
+                  "machineId": {
+                    "type": "integer"
+                  },
+                  "importedAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "sessionsImported": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "sourcePath",
+                  "machineId",
+                  "importedAt",
+                  "sessionsImported"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "Profile": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "timeZone",
+          "createdMs",
+          "updatedMs"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "timeZone": {
+            "type": "string",
+            "examples": [
+              "America/Toronto"
+            ]
+          },
+          "createdMs": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "updatedMs": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "MachineSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "brand",
+          "model",
+          "serial",
+          "machineType",
+          "sessionCount"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "brand": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "serial": {
+            "type": "string"
+          },
+          "machineType": {
+            "type": "integer"
+          },
+          "profileId": {
+            "type": "integer"
+          },
+          "deviceTimeZone": {
+            "type": "string"
+          },
+          "sessionCount": {
+            "type": "integer"
+          },
+          "firstSessionTime": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lastSessionTime": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "MachineTimeSettings": {
+        "type": "object",
+        "required": [
+          "machineId",
+          "profileId",
+          "deviceTimeZone",
+          "source"
+        ],
+        "properties": {
+          "machineId": {
+            "type": "integer"
+          },
+          "profileId": {
+            "type": "integer"
+          },
+          "deviceTimeZone": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "profile",
+              "manual",
+              "unknown"
+            ]
+          }
+        }
+      },
+      "EventCounts": {
+        "type": "object",
+        "required": [
+          "obstructive",
+          "clearAirway",
+          "hypopnea",
+          "unclassified",
+          "rera"
+        ],
+        "properties": {
+          "obstructive": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "clearAirway": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "hypopnea": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "unclassified": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rera": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "EventIndices": {
+        "type": "object",
+        "required": [
+          "obstructive",
+          "clearAirway",
+          "hypopnea",
+          "unclassified",
+          "rera"
+        ],
+        "properties": {
+          "obstructive": {
+            "type": "number",
+            "minimum": 0
+          },
+          "clearAirway": {
+            "type": "number",
+            "minimum": 0
+          },
+          "hypopnea": {
+            "type": "number",
+            "minimum": 0
+          },
+          "unclassified": {
+            "type": "number",
+            "minimum": 0
+          },
+          "rera": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      },
+      "ChannelStatistics": {
+        "type": "object",
+        "required": [
+          "channelId",
+          "count",
+          "min",
+          "max",
+          "average",
+          "percentile50",
+          "percentile95"
+        ],
+        "properties": {
+          "channelId": {
+            "type": "integer"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "min": {
+            "type": "number"
+          },
+          "max": {
+            "type": "number"
+          },
+          "average": {
+            "type": "number"
+          },
+          "percentile50": {
+            "type": "number"
+          },
+          "percentile95": {
+            "type": "number"
+          }
+        }
+      },
+      "DailySessionSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "firstMs",
+          "lastMs",
+          "usageHours",
+          "enabled",
+          "summaryOnly",
+          "settings"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "firstMs": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lastMs": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "usageHours": {
+            "type": "number"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "summaryOnly": {
+            "type": "boolean"
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "DailySummary": {
+        "type": "object",
+        "required": [
+          "machineId",
+          "date",
+          "deviceTimeZone",
+          "rangeStartMs",
+          "rangeEndMs",
+          "sessions",
+          "usageHours",
+          "eventCounts",
+          "eventIndices",
+          "ahi",
+          "rdi",
+          "availableChannels"
+        ],
+        "properties": {
+          "machineId": {
+            "type": "integer"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "deviceTimeZone": {
+            "type": "string"
+          },
+          "rangeStartMs": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "rangeEndMs": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sessions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DailySessionSummary"
+            }
+          },
+          "usageHours": {
+            "type": "number"
+          },
+          "eventCounts": {
+            "$ref": "#/components/schemas/EventCounts"
+          },
+          "eventIndices": {
+            "$ref": "#/components/schemas/EventIndices"
+          },
+          "ahi": {
+            "type": "number"
+          },
+          "rdi": {
+            "type": "number"
+          },
+          "pressure": {
+            "$ref": "#/components/schemas/ChannelStatistics"
+          },
+          "leak": {
+            "$ref": "#/components/schemas/ChannelStatistics"
+          },
+          "availableChannels": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "OverviewDaySummary": {
+        "type": "object",
+        "required": [
+          "date",
+          "sessionCount",
+          "usageHours",
+          "ahi",
+          "rdi",
+          "obstructive",
+          "clearAirway",
+          "hypopnea",
+          "unclassified",
+          "rera",
+          "eventIndices"
+        ],
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "sessionCount": {
+            "type": "integer"
+          },
+          "usageHours": {
+            "type": "number"
+          },
+          "ahi": {
+            "type": "number"
+          },
+          "rdi": {
+            "type": "number"
+          },
+          "obstructive": {
+            "type": "integer"
+          },
+          "clearAirway": {
+            "type": "integer"
+          },
+          "hypopnea": {
+            "type": "integer"
+          },
+          "unclassified": {
+            "type": "integer"
+          },
+          "rera": {
+            "type": "integer"
+          },
+          "eventIndices": {
+            "$ref": "#/components/schemas/EventIndices"
+          },
+          "pressureAverage": {
+            "type": "number"
+          },
+          "pressure95": {
+            "type": "number"
+          },
+          "leakAverage": {
+            "type": "number"
+          },
+          "leak95": {
+            "type": "number"
+          }
+        }
+      },
+      "SettingHistoryEntry": {
+        "type": "object",
+        "required": [
+          "startDate",
+          "endDate",
+          "firstMs",
+          "lastMs",
+          "sessionCount",
+          "settings"
+        ],
+        "properties": {
+          "startDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "firstMs": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lastMs": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sessionCount": {
+            "type": "integer"
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "StatisticsSummary": {
+        "type": "object",
+        "required": [
+          "machineId",
+          "startDate",
+          "endDate",
+          "totalDays",
+          "usedDays",
+          "compliantDays",
+          "totalUsageHours",
+          "averageUsageHours",
+          "medianUsageHours",
+          "eventCounts",
+          "eventIndices",
+          "ahi",
+          "rdi",
+          "settingsHistory",
+          "days"
+        ],
+        "properties": {
+          "machineId": {
+            "type": "integer"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "totalDays": {
+            "type": "integer"
+          },
+          "usedDays": {
+            "type": "integer"
+          },
+          "compliantDays": {
+            "type": "integer"
+          },
+          "totalUsageHours": {
+            "type": "number"
+          },
+          "averageUsageHours": {
+            "type": "number"
+          },
+          "medianUsageHours": {
+            "type": "number"
+          },
+          "eventCounts": {
+            "$ref": "#/components/schemas/EventCounts"
+          },
+          "eventIndices": {
+            "$ref": "#/components/schemas/EventIndices"
+          },
+          "ahi": {
+            "type": "number"
+          },
+          "rdi": {
+            "type": "number"
+          },
+          "pressure": {
+            "$ref": "#/components/schemas/ChannelStatistics"
+          },
+          "leak": {
+            "$ref": "#/components/schemas/ChannelStatistics"
+          },
+          "settingsHistory": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SettingHistoryEntry"
+            }
+          },
+          "days": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OverviewDaySummary"
+            }
+          }
+        }
+      },
+      "ChartSeries": {
+        "type": "object",
+        "required": [
+          "channelId",
+          "listIndex",
+          "type",
+          "dimension",
+          "timesMs",
+          "values",
+          "sourcePointCount",
+          "decimated"
+        ],
+        "properties": {
+          "channelId": {
+            "type": "integer"
+          },
+          "listIndex": {
+            "type": "integer"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "event",
+              "waveform"
+            ]
+          },
+          "dimension": {
+            "type": "string"
+          },
+          "timesMs": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "values2": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "sourcePointCount": {
+            "type": "integer"
+          },
+          "decimated": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ChartQueryResult": {
+        "type": "object",
+        "required": [
+          "machineId",
+          "date",
+          "rangeStartMs",
+          "rangeEndMs",
+          "series"
+        ],
+        "properties": {
+          "machineId": {
+            "type": "integer"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "rangeStartMs": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "rangeEndMs": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "series": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChartSeries"
+            }
+          }
+        }
+      },
+      "GraphPreference": {
+        "type": "object",
+        "required": [
+          "key",
+          "pinned",
+          "sortOrder"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "pinned": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "integer"
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 520
+          }
+        }
+      },
+      "GraphBookmark": {
+        "type": "object",
+        "required": [
+          "id",
+          "machineId",
+          "date",
+          "name",
+          "startMs",
+          "endMs"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "machineId": {
+            "type": "integer"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "name": {
+            "type": "string"
+          },
+          "startMs": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "endMs": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ImportPreview": {
+        "type": "object",
+        "required": [
+          "sourcePath",
+          "importerName"
+        ],
+        "properties": {
+          "sourcePath": {
+            "type": "string"
+          },
+          "importerName": {
+            "type": "string"
+          },
+          "machine": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "fileCount": {
+            "type": "integer"
+          },
+          "fileCounts": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "ImportStoreResult": {
+        "type": "object",
+        "required": [
+          "databasePath",
+          "sourcePath",
+          "machineId",
+          "brand",
+          "model",
+          "serial",
+          "sessionsImported",
+          "newSessions",
+          "updatedSessions",
+          "totalStoredSessions",
+          "warnings"
+        ],
+        "properties": {
+          "databasePath": {
+            "type": "string"
+          },
+          "sourcePath": {
+            "type": "string"
+          },
+          "machineId": {
+            "type": "integer"
+          },
+          "brand": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "serial": {
+            "type": "string"
+          },
+          "sessionsImported": {
+            "type": "integer"
+          },
+          "newSessions": {
+            "type": "integer"
+          },
+          "updatedSessions": {
+            "type": "integer"
+          },
+          "totalStoredSessions": {
+            "type": "integer"
+          },
+          "firstSessionTime": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lastSessionTime": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

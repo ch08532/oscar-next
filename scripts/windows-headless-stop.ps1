@@ -1,0 +1,1 @@
+$ErrorActionPreference='Stop'; $s=Get-Service OscarNextHeadless -ErrorAction Stop; if($s.Status -ne 'Stopped'){Stop-Service OscarNextHeadless}; Get-Service OscarNextHeadless | Format-Table -Auto Name,Status,StartType

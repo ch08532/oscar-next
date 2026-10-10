@@ -1,0 +1,46 @@
+appId: org.oscarnext.desktop
+productName: OSCAR Next
+copyright: Copyright © OSCAR Next contributors
+asar: true
+directories:
+  output: release
+files:
+  - dist/**/*
+  - backend/src/**/*
+  - package.json
+  - assets/**/*
+extraResources:
+  - from: ../../LICENSE
+    to: LICENSE.txt
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: assets/icon.ico
+  artifactName: OSCAR-Next-${version}-Setup-${arch}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: OSCAR Next
+  uninstallDisplayName: OSCAR Next
+linux:
+  target:
+    - target: deb
+      arch:
+        - arm64
+    - target: AppImage
+      arch:
+        - arm64
+  icon: assets/icon.png
+  category: Utility
+  executableName: oscar-next
+  artifactName: OSCAR-Next-${version}-${arch}.${ext}
+deb:
+  priority: optional
+  packageCategory: utils
+  synopsis: OSCAR Next CPAP therapy analysis
+  description: OSCAR Next is a modern CPAP therapy analysis desktop application.

@@ -1,0 +1,29 @@
+{
+  "name": "@oscar-next/desktop",
+  "version": "2.3.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "electron": "electron ../../dist/src/desktop/main.js",
+    "stage": "node scripts/stage-backend.mjs",
+    "dist:win": "electron-builder --config electron-builder.yml --win nsis --x64",
+    "build:headless": "vite build --config vite.headless.config.ts && node scripts/finalize-headless.mjs",
+    "dist:linux:arm64": "electron-builder --config electron-builder.yml --linux deb AppImage --arm64"
+  },
+  "dependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.6.0",
+    "electron": "^37.0.0",
+    "typescript": "^5.8.3",
+    "vite": "^7.0.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "electron-builder": "^26.0.0"
+  },
+  "main": "backend/src/desktop/main.js"
+}

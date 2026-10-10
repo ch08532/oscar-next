@@ -1,0 +1,1 @@
+$ErrorActionPreference='Stop'; $s=Get-Service OscarNextHeadless -ErrorAction Stop; $s | Format-Table -Auto Name,Status,StartType; Write-Host ''; Write-Host 'Web UI: http://localhost:3210/'; Write-Host 'Logs:   %ProgramData%\OSCAR Next Headless\data\logs'

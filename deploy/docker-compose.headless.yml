@@ -1,0 +1,18 @@
+services:
+  oscar-next:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.headless
+    image: oscar-next-headless:2.3.0
+    restart: unless-stopped
+    ports:
+      - "3210:3210"
+    environment:
+      OSCAR_API_TOKEN: ${OSCAR_API_TOKEN:?Set OSCAR_API_TOKEN in .env or the shell}
+    volumes:
+      - oscar-next-data:/data
+      # Optional: mount a CPAP card/backup read-only, then import /cpap in the web UI.
+      # - /media/pi/CPAP:/cpap:ro
+
+volumes:
+  oscar-next-data:
