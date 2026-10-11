@@ -1,4 +1,8 @@
+import { useDialogFocus } from "./useDialogFocus";
 import type { ImportPreview, ImportProgress, ImportStoreResult } from "./types";
+import { ProgressBar } from "./components/tremor/ProgressBar";
+import { Badge } from "./ui";
+import { X } from "lucide-react";
 
 const FILE_TYPES = ["STR", "BRP", "PLD", "EVE", "CSL", "SAD", "SA2", "AEV"];
 
@@ -23,18 +27,19 @@ export function ImportDialog({
   onImport(): void;
   onClose(): void;
 }) {
+  const dialogRef = useDialogFocus(importing ? undefined : onClose);
   const percent = progress?.total && progress.total > 0
     ? Math.min(100, Math.round((progress.current / progress.total) * 100))
     : undefined;
 
   return <div className="modal-backdrop" role="presentation">
-    <section className="import-dialog" role="dialog" aria-modal="true" aria-labelledby="import-title">
+    <section ref={dialogRef} tabIndex={-1} className="import-dialog" role="dialog" aria-modal="true" aria-labelledby="import-title">
       <div className="import-dialog-heading">
         <div>
           <h2 id="import-title">{automaticDetectionLabel && !result ? "CPAP card detected" : "Import CPAP data"}</h2>
           <p>{result ? "Import complete" : automaticDetectionLabel ? `${preview.machine?.brand || preview.importerName} ${preview.machine?.model || "device"} is ready to import.` : `Detected ${preview.importerName} media`}</p>
         </div>
-        {!importing && <button className="icon-button" onClick={onClose} aria-label="Close">×</button>}
+        {!importing && <button className="icon-button" onClick={onClose} aria-label="Close"><X size={18} /></button>}
       </div>
 
       {automaticDetectionLabel && !result && <div className="auto-detected-note"><strong>Detected automatically</strong><span>{automaticDetectionLabel}</span></div>}
@@ -51,7 +56,7 @@ export function ImportDialog({
         <div className="import-files-heading"><strong>{preview.fileCount} EDF file{preview.fileCount === 1 ? "" : "s"} found</strong><span>Files are parsed only after you confirm.</span></div>
         <div className="file-count-grid">{FILE_TYPES.map((type) => {
           const count = preview.fileCounts?.[type] ?? 0;
-          return count > 0 ? <div key={type}><span>{type}</span><strong>{count}</strong></div> : null;
+          return <Badge key={type} variant={count > 0 ? "default" : "neutral"}>{type} <strong>{count}</strong></Badge>;
         })}</div>
       </div>}
 
@@ -59,7 +64,7 @@ export function ImportDialog({
 
       {importing && <div className="import-progress">
         <div className="progress-row"><strong>{progress?.message || "Importing therapy data…"}</strong><span>{percent !== undefined ? `${percent}%` : ""}</span></div>
-        <div className="progress-track"><div style={{ width: `${percent ?? 4}%` }} /></div>
+        <ProgressBar value={percent ?? 0} className="my-3" aria-label="CPAP import progress" />
         {progress?.total !== undefined && <small>{progress.current} of {progress.total}</small>}
       </div>}
 

@@ -1,3 +1,5 @@
+import { useDialogFocus } from "./useDialogFocus";
+import { X } from "lucide-react";
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import type { MachineTimeSettings, ProfileSummary, StoredMachineSummary } from "./types";
 
@@ -26,6 +28,7 @@ export function FirstRunSetup({ systemTimeZone, onComplete, onOpenExisting, onTr
   onOpenExisting(): Promise<void>;
   onTryDemo(): Promise<void>;
 }) {
+  const dialogRef = useDialogFocus();
   const [name, setName] = useState("My Profile");
   const [timeZone, setTimeZone] = useState(systemTimeZone || "UTC");
   const [error, setError] = useState<string>();
@@ -39,7 +42,7 @@ export function FirstRunSetup({ systemTimeZone, onComplete, onOpenExisting, onTr
     finally { setSaving(false); }
   }
 
-  return <div className="modal-backdrop setup-backdrop"><form className="modal-card setup-card" onSubmit={submit}>
+  return <div className="modal-backdrop setup-backdrop"><form ref={dialogRef as React.RefObject<HTMLFormElement>} role="dialog" aria-modal="true" aria-label="Welcome to OSCAR Next" tabIndex={-1} className="modal-card setup-card" onSubmit={submit}>
     <div className="setup-brand"><span className="setup-mark">O</span><div><h2>Welcome to OSCAR Next</h2><p>Set up the profile that will own your therapy data.</p></div></div>
     <label>Profile name<input value={name} onChange={(event: ChangeEvent<HTMLInputElement>) => setName(event.target.value)} required /></label>
     <label>Home timezone<TimeZoneInput id="setup-timezones" value={timeZone} onChange={setTimeZone} /><small>CPAP timestamps are kept as device wall-clock time. This timezone gives them real-world timezone meaning without changing the source data.</small></label>
@@ -59,6 +62,7 @@ export function ProfileSettingsDialog({ profiles, activeProfile, machine, machin
   onUpdate(id: number, updates: { name?: string; timeZone?: string }): Promise<void>;
   onSetMachineTimeZone(timeZone?: string): Promise<void>;
 }) {
+  const dialogRef = useDialogFocus(onClose);
   const [name, setName] = useState(activeProfile?.name ?? "");
   const [timeZone, setTimeZone] = useState(activeProfile?.timeZone ?? "UTC");
   const [newName, setNewName] = useState("");
@@ -86,8 +90,8 @@ export function ProfileSettingsDialog({ profiles, activeProfile, machine, machin
     finally { setSaving(false); }
   }
 
-  return <div className="modal-backdrop"><div className="modal-card profile-card">
-    <div className="dialog-heading"><div><h2>Profiles & device time</h2><p>Keep therapy histories separate and define how each machine’s wall clock maps to a timezone.</p></div><button className="icon-button" onClick={onClose} aria-label="Close">×</button></div>
+  return <div className="modal-backdrop"><div ref={dialogRef as React.RefObject<HTMLDivElement>} role="dialog" aria-modal="true" aria-label="Profile settings" tabIndex={-1} className="modal-card profile-card">
+    <div className="dialog-heading"><div><h2>Profiles & device time</h2><p>Keep therapy histories separate and define how each machine’s wall clock maps to a timezone.</p></div><button className="icon-button" onClick={onClose} aria-label="Close"><X size={18} /></button></div>
 
     <section className="profile-section">
       <h3>Active profile</h3>

@@ -34,7 +34,7 @@ export function keyboardRangeOffset(key: string, current: number, last: number, 
   return clampRangeOffset(next, last, other, edge);
 }
 
-export function presetDateRange(firstDate: string, lastDate: string, endDate: string, preset: 7 | 30 | 90 | "all"): { startDate: string; endDate: string } {
+export function presetDateRange(firstDate: string, lastDate: string, endDate: string, preset: 7 | 30 | 90 | 180 | 365 | "all"): { startDate: string; endDate: string } {
   if (preset === "all") return { startDate: firstDate, endDate: lastDate };
   const candidate = dateAtOffset(endDate, -(preset - 1));
   return { startDate: candidate < firstDate ? firstDate : candidate, endDate };

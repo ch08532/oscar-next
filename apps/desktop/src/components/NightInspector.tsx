@@ -1,0 +1,37 @@
+import { useDialogFocus } from "../useDialogFocus";
+import { chronologicalEvents } from "../inspector-events";
+import { useState, useEffect } from "react";
+import { X, Bookmark, Trash2 } from "lucide-react";
+import type { ChartQueryResult, DailySummary, GraphBookmark } from "../types";
+import { EVENT_PRESENTATION, therapyTime } from "../event-presentation";
+import { SessionsTable } from "./SessionsTable";
+
+export interface GraphNavigation { startMs: number; endMs: number; requestId: number; }
+export function NightInspector({ daily, charts, onClose, onToggleSession, onDate, bookmarks, onBookmarkDelete, onNavigate }: {
+  daily: DailySummary; charts?: ChartQueryResult; onClose(): void; onToggleSession(id: number, enabled: boolean): void;
+  onDate(date: string): void; bookmarks: GraphBookmark[]; onBookmarkDelete(id: number): void; onNavigate(startMs: number, endMs: number): void;
+}) {
+  useEffect(() => { const close = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); }; window.addEventListener("keydown", close); return () => window.removeEventListener("keydown", close); }, [onClose]);
+  const [drawer, setDrawer] = useState(() => window.matchMedia("(max-width: 1350px)").matches);
+  useEffect(() => { const media = window.matchMedia("(max-width: 1350px)"); const update = () => setDrawer(media.matches); media.addEventListener("change", update); return () => media.removeEventListener("change", update); }, []);
+  const dialogRef = useDialogFocus(onClose, drawer);
+  const [tab, setTab] = useState("Summary");
+  const [draft, setDraft] = useState("");
+  const events = chronologicalEvents(charts?.series ?? []);
+  const settings = daily.sessions.find(session => session.enabled !== false)?.settings ?? {};
+  const modes: Record<number, string> = { 1: "CPAP", 2: "APAP", 3: "Bilevel fixed", 4: "Bilevel auto", 5: "Bilevel variable PS", 6: "ASV", 7: "ASV variable EPAP", 8: "AVAPS" };
+  const setting = (id: number, unit = "") => settings[id] === undefined ? "—" : `${settings[id]}${unit}`;
+  return <aside ref={dialogRef} tabIndex={-1} role={drawer ? "dialog" : undefined} aria-modal={drawer ? true : undefined} className="night-inspector" aria-label="Night Inspector"><div className="flex items-center justify-between border-b border-[var(--border)] p-4"><div><h2 className="font-semibold">Night Inspector</h2><p className="mt-1 text-xs text-[var(--muted)]">{daily.date} · Device wall clock</p></div><button onClick={onClose} className="icon-button" aria-label="Close Night Inspector"><X size={16} /></button></div>
+    <div className="inspector-tabs" role="tablist" aria-label="Night details">{["Summary", "Events", "Notes", "Bookmarks"].map(name => <button id={`inspector-${name}`} role="tab" tabIndex={tab === name ? 0 : -1} key={name} aria-selected={tab === name} aria-controls="inspector-content" onClick={() => setTab(name)} onKeyDown={event => { const tabs = ["Summary", "Events", "Notes", "Bookmarks"]; if (event.key === "ArrowRight" || event.key === "ArrowLeft") { event.preventDefault(); const next = tabs[(tabs.indexOf(tab) + (event.key === "ArrowRight" ? 1 : 3)) % 4]; setTab(next); document.getElementById(`inspector-${next}`)?.focus(); } }} className={tab === name ? "active" : ""}>{name}</button>)}</div>
+    <div id="inspector-content" role="tabpanel" aria-labelledby={`inspector-${tab}`} className="inspector-content">
+      {tab === "Summary" && <><section><h3>Respiratory indices</h3><div className="inspector-ahi"><strong>{daily.ahi.toFixed(2)}</strong><span>AHI <small>events / h</small></span></div><dl>{[["OA", daily.eventIndices.obstructive], ["CA", daily.eventIndices.clearAirway], ["H", daily.eventIndices.hypopnea], ["UA", daily.eventIndices.unclassified], ["RERA", daily.eventIndices.rera]].map(([name, value]) => <div key={name}><dt>{name} index</dt><dd>{Number(value).toFixed(2)}</dd></div>)}</dl></section>
+        <section><h3>Therapy settings</h3><dl><div><dt>Mode</dt><dd>{typeof settings[1000] === "number" ? modes[settings[1000]] ?? String(settings[1000]) : "—"}</dd></div><div><dt>Set pressure</dt><dd>{setting(1002, " cmH₂O")}</dd></div><div><dt>Pressure range</dt><dd>{setting(1003)} – {setting(1004, " cmH₂O")}</dd></div><div><dt>EPR level</dt><dd>{setting(1101)}</dd></div><div><dt>Ramp time</dt><dd>{setting(1103, " min")}</dd></div></dl><small className="text-[var(--muted)]">First included session. Settings may vary between sessions.</small></section>
+        <section><h3>Sessions</h3><SessionsTable daily={daily} onToggle={onToggleSession} compact /><p className="mt-2 text-xs text-[var(--muted)]">Excluded sessions are omitted from metrics and graphs.</p></section>
+        <section><h3>Selected night</h3><dl><div><dt>Usage</dt><dd>{daily.usageHours.toFixed(2)} h</dd></div><div><dt>Pressure 95%</dt><dd>{daily.pressure?.percentile95.toFixed(1) ?? "—"} {daily.pressure ? "cmH₂O" : ""}</dd></div><div><dt>Leak 95%</dt><dd>{daily.leak?.percentile95.toFixed(1) ?? "—"} {daily.leak ? "L/min" : ""}</dd></div></dl></section>
+        <section><h3>Therapy calendar</h3><input type="date" aria-label="Inspector therapy date" value={daily.date} onChange={event => { if (event.target.value) onDate(event.target.value); }} /><p className="mt-2 text-xs text-[var(--muted)]">Therapy dates run noon to noon · {daily.deviceTimeZone}</p></section></>}
+      {tab === "Events" && <section><h3>Chronological events</h3><p className="mb-3 text-xs text-[var(--muted)]">Select an event for a two-minute analysis window. Summary-only indices are not detailed event records.</p>{events.length ? <div className="event-list">{events.map((event, index) => <button key={`${event.channel}-${event.time}-${index}`} onClick={() => onNavigate(event.time - 60_000, event.time + 60_000)}><time>{therapyTime(event.time, true)}</time><strong style={{ color: EVENT_PRESENTATION[event.channel].color }}>{EVENT_PRESENTATION[event.channel].label}</strong><span>{event.duration > 0 ? `${event.duration.toFixed(0)} s` : "—"}</span></button>)}</div> : <p className="text-sm text-[var(--muted)]">No detailed events on this night.</p>}</section>}
+      {tab === "Notes" && <section><h3>Night notes</h3><p className="mb-3 text-sm text-[var(--muted)]">Draft only. Notes are not saved and will be cleared when you change nights or leave Daily.</p><textarea aria-label="Unsaved night notes" placeholder="Write a temporary note…" rows={10} value={draft} onChange={event => setDraft(event.target.value)} /><small className="text-amber-500">Not saved</small></section>}
+      {tab === "Bookmarks" && <section><h3>Saved graph views</h3><p className="mb-3 text-xs text-[var(--muted)]">Save the current zoom range from the graph toolbar.</p>{bookmarks.map(bookmark => <div key={bookmark.id} className="bookmark-row"><button onClick={() => onNavigate(bookmark.startMs, bookmark.endMs)}><Bookmark size={15} /><span><strong>{bookmark.name}</strong><small>{therapyTime(bookmark.startMs)} – {therapyTime(bookmark.endMs)}</small></span></button><button className="icon-button" onClick={() => onBookmarkDelete(bookmark.id)} aria-label={`Delete ${bookmark.name}`}><Trash2 size={14} /></button></div>)}{!bookmarks.length && <p className="text-sm text-[var(--muted)]">No saved views for this night.</p>}</section>}
+    </div>
+  </aside>;
+}

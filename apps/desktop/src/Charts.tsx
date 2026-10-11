@@ -1,7 +1,10 @@
+import { Pin, GripVertical, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from "react";
 import { Channel, DEFAULT_CHART_CHANNELS, EVENT_CHANNELS } from "./channels";
 import type { ChartQueryResult, ChartSeries, DailySummary, GraphBookmark, GraphPreference } from "./types";
 import { channelStatistics, countEvents, eventsNearCursor, lowerBound, nearestPoint, statistics, therapyWindowEventSummary, valuesInViewport } from "./chart-analysis";
+import { EVENT_PRESENTATION } from "./event-presentation";
+import type { GraphNavigation } from "./components/NightInspector";
 
 type Viewport = { startMs: number; endMs: number };
 
@@ -84,8 +87,8 @@ const CHANNEL_META: Readonly<Record<number, { name: string; color: string }>> = 
   [Channel.IPAP]: { name: "IPAP", color: "#d97706" },
   [Channel.EPAP]: { name: "EPAP", color: "#0f8a73" },
   [Channel.Leak]: { name: "Leak", color: "#0f8a73" },
-  [Channel.SpO2]: { name: "SpO₂", color: "#8b5cf6" },
-  [Channel.Pulse]: { name: "Pulse", color: "#d97706" },
+  [Channel.SpO2]: { name: "SpO₂", color: "#f43f5e" },
+  [Channel.Pulse]: { name: "Pulse", color: "#f97316" },
   [Channel.ObstructiveApnea]: { name: "OA", color: "#b42318" },
   [Channel.Hypopnea]: { name: "H", color: "#d97706" },
   [Channel.ClearAirway]: { name: "CA", color: "#1769aa" },
@@ -94,7 +97,9 @@ const CHANNEL_META: Readonly<Record<number, { name: string; color: string }>> = 
   [Channel.CSR]: { name: "CSR", color: "#0f8a73" },
 });
 
-function channelColor(channelId: number): string { return CHANNEL_META[channelId]?.color ?? "#1769aa"; }
+function channelColor(channelId: number): string { return EVENT_PRESENTATION[channelId]?.color ?? CHANNEL_META[channelId]?.color ?? "#3b82f6"; }
+
+function canvasColor(token: string): string { return getComputedStyle(document.documentElement).getPropertyValue(token).trim(); }
 
 function valuePrecision(value: number): number {
   const magnitude = Math.abs(value);
@@ -142,12 +147,12 @@ function drawGrid(
   const plotHeight = Math.max(1, height - top - bottom);
 
   context.clearRect(0, 0, width, height);
-  context.fillStyle = "#ffffff";
+  context.fillStyle = canvasColor("--canvas");
   context.fillRect(0, 0, width, height);
   context.font = "11px system-ui, sans-serif";
   context.textBaseline = "middle";
-  context.strokeStyle = "#e7edf2";
-  context.fillStyle = "#687c8e";
+  context.strokeStyle = canvasColor("--grid");
+  context.fillStyle = canvasColor("--muted");
   context.lineWidth = 1;
 
   for (let row = 0; row <= 4; row += 1) {
@@ -293,7 +298,7 @@ function useGraphInteractions(props: InteractionProps, plotLeft = 64, plotRight 
 }
 
 function GraphPin({ pinned, onToggle }: { pinned: boolean; onToggle: () => void }) {
-  return <button type="button" className={`graph-pin ${pinned ? "active" : ""}`} aria-pressed={pinned} title={pinned ? "Unpin graph" : "Pin graph to top"} onClick={onToggle}>{pinned ? "★" : "☆"}</button>;
+  return <button type="button" className={`graph-pin ${pinned ? "active" : ""}`} aria-pressed={pinned} title={pinned ? "Unpin graph" : "Pin graph to top"} onClick={onToggle}><Pin size={14} fill={pinned ? "currentColor" : "none"} /></button>;
 }
 
 function GraphDragHandle({ graphKey, onStart }: { graphKey: string; onStart: (key: string) => void }) {
@@ -308,7 +313,7 @@ function GraphDragHandle({ graphKey, onStart }: { graphKey: string; onStart: (ke
       event.dataTransfer.setData("text/x-oscar-graph-key", graphKey);
       onStart(graphKey);
     }}
-  >⋮⋮</button>;
+  ><GripVertical size={15} /></button>;
 }
 
 function useResizableGraphHeight(initialHeight: number, onCommit: (height: number) => void) {
@@ -385,7 +390,8 @@ function GraphPanel({ definition, series, interaction, pinned, height: storedHei
     };
     draw();
     const observer = new ResizeObserver(draw); observer.observe(canvas);
-    return () => observer.disconnect();
+    window.addEventListener("oscar-theme-change", draw);
+    return () => { observer.disconnect(); window.removeEventListener("oscar-theme-change", draw); };
   }, [definition, height, interaction.viewport, series, unit]);
 
   useEffect(() => {
@@ -397,7 +403,7 @@ function GraphPanel({ definition, series, interaction, pinned, height: storedHei
       context.clearRect(0, 0, width, height);
       if (interaction.cursorMs === undefined || interaction.cursorMs < interaction.viewport.startMs || interaction.cursorMs > interaction.viewport.endMs) return;
       const x = left + ((interaction.cursorMs - interaction.viewport.startMs) / Math.max(1, interaction.viewport.endMs - interaction.viewport.startMs)) * plotWidth;
-      context.strokeStyle = "#36495a"; context.lineWidth = 1; context.setLineDash([3, 3]);
+      context.strokeStyle = canvasColor("--cursor"); context.lineWidth = 1; context.setLineDash([3, 3]);
       context.beginPath(); context.moveTo(x, top); context.lineTo(x, height - bottom); context.stroke(); context.setLineDash([]);
 
       let bounds = visibleBounds(series, interaction.viewport) ?? { min: 0, max: 1 };
@@ -415,7 +421,7 @@ function GraphPanel({ definition, series, interaction, pinned, height: storedHei
       for (const readout of cursorPoints) {
         context.fillStyle = channelColor(readout.item.channelId);
         context.beginPath(); context.arc(xFor(readout.point.timeMs), yFor(readout.point.value), 3.5, 0, Math.PI * 2); context.fill();
-        context.strokeStyle = "#ffffff"; context.lineWidth = 1.5; context.stroke();
+        context.strokeStyle = canvasColor("--canvas"); context.lineWidth = 1.5; context.stroke();
       }
 
       if (cursorPoints.length) {
@@ -425,13 +431,13 @@ function GraphPanel({ definition, series, interaction, pinned, height: storedHei
         const lineHeight = 17; const boxHeight = lines.length * lineHeight + 8;
         const boxX = x + boxWidth + 18 > width ? Math.max(left, x - boxWidth - 10) : x + 10;
         const boxY = top + 6;
-        context.fillStyle = "rgba(255,255,255,.96)"; context.strokeStyle = "#aebbc7"; context.lineWidth = 1;
+        context.fillStyle = canvasColor("--surface"); context.strokeStyle = canvasColor("--border"); context.lineWidth = 1;
         context.fillRect(boxX, boxY, boxWidth, boxHeight); context.strokeRect(boxX, boxY, boxWidth, boxHeight);
-        context.textAlign = "left"; context.textBaseline = "middle"; context.fillStyle = "#263746";
+        context.textAlign = "left"; context.textBaseline = "middle"; context.fillStyle = canvasColor("--text");
         lines.forEach((line, index) => context.fillText(line, boxX + 8, boxY + 7 + lineHeight * index + lineHeight / 2));
       }
     };
-    draw(); const observer = new ResizeObserver(draw); observer.observe(canvas); return () => observer.disconnect();
+    draw(); const observer = new ResizeObserver(draw); observer.observe(canvas); window.addEventListener("oscar-theme-change", draw); return () => { observer.disconnect(); window.removeEventListener("oscar-theme-change", draw); };
   }, [cursorPoints, definition, height, interaction.cursorMs, interaction.viewport, series]);
 
   const headingDetail = cursorPoints.length
@@ -470,7 +476,7 @@ function EventFlags({ series, interaction, pinned, height: storedHeight, onToggl
       const width = canvas.clientWidth; const left = 86; const right = 12; const top = 8; const bottom = 24;
       const plotWidth = Math.max(1, width - left - right); const plotHeight = Math.max(1, height - top - bottom);
       const rowHeight = plotHeight / Math.max(1, rows.length);
-      context.clearRect(0, 0, width, height); context.fillStyle = "#fff"; context.fillRect(0, 0, width, height);
+      context.clearRect(0, 0, width, height); context.fillStyle = canvasColor("--canvas"); context.fillRect(0, 0, width, height);
       context.font = "11px system-ui, sans-serif"; context.textBaseline = "middle";
       const duration = Math.max(1, interaction.viewport.endMs - interaction.viewport.startMs);
       const xFor = (time: number) => left + ((time - interaction.viewport.startMs) / duration) * plotWidth;
@@ -478,8 +484,8 @@ function EventFlags({ series, interaction, pinned, height: storedHeight, onToggl
       rows.forEach((row, index) => {
         const meta = EVENT_META[row.channelId] ?? { label: String(row.channelId), name: String(row.channelId) };
         const y = top + index * rowHeight;
-        context.fillStyle = "#687c8e"; context.textAlign = "right"; context.fillText(meta.label, left - 8, y + rowHeight / 2);
-        context.strokeStyle = "#edf1f4"; context.beginPath(); context.moveTo(left, y + rowHeight); context.lineTo(width - right, y + rowHeight); context.stroke();
+        context.fillStyle = canvasColor("--muted"); context.textAlign = "right"; context.fillText(meta.label, left - 8, y + rowHeight / 2);
+        context.strokeStyle = canvasColor("--grid"); context.beginPath(); context.moveTo(left, y + rowHeight); context.lineTo(width - right, y + rowHeight); context.stroke();
         for (const item of row.series) {
           const begin = lowerBound(item.timesMs, interaction.viewport.startMs); const end = lowerBound(item.timesMs, interaction.viewport.endMs);
           for (let point = begin; point < end; point += 1) {
@@ -496,7 +502,7 @@ function EventFlags({ series, interaction, pinned, height: storedHeight, onToggl
         }
       });
 
-      context.fillStyle = "#687c8e";
+      context.fillStyle = canvasColor("--muted");
       for (let column = 0; column <= 6; column += 1) {
         const x = left + (plotWidth * column) / 6;
         const time = interaction.viewport.startMs + duration * column / 6;
@@ -504,7 +510,7 @@ function EventFlags({ series, interaction, pinned, height: storedHeight, onToggl
         context.fillText(timeLabel(time), x, height - 10);
       }
     };
-    draw(); const observer = new ResizeObserver(draw); observer.observe(canvas); return () => observer.disconnect();
+    draw(); const observer = new ResizeObserver(draw); observer.observe(canvas); window.addEventListener("oscar-theme-change", draw); return () => { observer.disconnect(); window.removeEventListener("oscar-theme-change", draw); };
   }, [height, interaction.viewport, rows]);
 
   useEffect(() => {
@@ -516,7 +522,7 @@ function EventFlags({ series, interaction, pinned, height: storedHeight, onToggl
       context.clearRect(0, 0, width, height);
       if (interaction.cursorMs === undefined || interaction.cursorMs < interaction.viewport.startMs || interaction.cursorMs > interaction.viewport.endMs) return;
       const x = left + ((interaction.cursorMs - interaction.viewport.startMs) / Math.max(1, interaction.viewport.endMs - interaction.viewport.startMs)) * plotWidth;
-      context.strokeStyle = "#36495a"; context.lineWidth = 1; context.setLineDash([3, 3]); context.beginPath(); context.moveTo(x, top); context.lineTo(x, height - bottom); context.stroke(); context.setLineDash([]);
+      context.strokeStyle = canvasColor("--cursor"); context.lineWidth = 1; context.setLineDash([3, 3]); context.beginPath(); context.moveTo(x, top); context.lineTo(x, height - bottom); context.stroke(); context.setLineDash([]);
 
       const nearby = eventsNearCursor(series, interaction.cursorMs, interaction.viewport, 7, plotWidth);
       if (nearby.length) {
@@ -529,13 +535,13 @@ function EventFlags({ series, interaction, pinned, height: storedHeight, onToggl
         const lineHeight = 17; const boxHeight = lines.length * lineHeight + 8;
         const boxX = x + boxWidth + 18 > width ? Math.max(left, x - boxWidth - 10) : x + 10;
         const boxY = top + 5;
-        context.fillStyle = "rgba(255,255,255,.96)"; context.strokeStyle = "#aebbc7"; context.lineWidth = 1;
+        context.fillStyle = canvasColor("--surface"); context.strokeStyle = canvasColor("--border"); context.lineWidth = 1;
         context.fillRect(boxX, boxY, boxWidth, boxHeight); context.strokeRect(boxX, boxY, boxWidth, boxHeight);
-        context.textAlign = "left"; context.textBaseline = "middle"; context.fillStyle = "#263746";
+        context.textAlign = "left"; context.textBaseline = "middle"; context.fillStyle = canvasColor("--text");
         lines.forEach((line, index) => context.fillText(line, boxX + 8, boxY + 7 + lineHeight * index + lineHeight / 2));
       }
     };
-    draw(); const observer = new ResizeObserver(draw); observer.observe(canvas); return () => observer.disconnect();
+    draw(); const observer = new ResizeObserver(draw); observer.observe(canvas); window.addEventListener("oscar-theme-change", draw); return () => { observer.disconnect(); window.removeEventListener("oscar-theme-change", draw); };
   }, [height, interaction.cursorMs, interaction.viewport, series]);
 
   return <section className="therapy-graph event-flags graph-layout-item" onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; }} onDrop={(event) => { event.preventDefault(); const source = event.dataTransfer.getData("text/x-oscar-graph-key"); if (source) onDropGraph(source, "events"); }}>
@@ -548,7 +554,10 @@ function EventFlags({ series, interaction, pinned, height: storedHeight, onToggl
   </section>;
 }
 
-export function GraphStack({ data, daily }: { data: ChartQueryResult; daily: DailySummary }) {
+export function GraphStack({ data, daily, navigation, bookmarkRevision = 0, onBookmarksChange }: {
+  data: ChartQueryResult; daily: DailySummary; navigation?: GraphNavigation;
+  bookmarkRevision?: number; onBookmarksChange?(bookmarks: GraphBookmark[]): void;
+}) {
   const bounds = useMemo<Viewport>(() => {
     const enabled = daily.sessions.filter((session) => session.enabled !== false);
     if (enabled.length) return { startMs: Math.min(...enabled.map((session) => session.firstMs)), endMs: Math.max(...enabled.map((session) => session.lastMs)) };
@@ -562,6 +571,11 @@ export function GraphStack({ data, daily }: { data: ChartQueryResult; daily: Dai
   const [graphPreferences, setGraphPreferences] = useState<GraphPreference[]>([]);
   const [bookmarks, setBookmarks] = useState<GraphBookmark[]>([]);
   const [bookmarkName, setBookmarkName] = useState("");
+
+  useEffect(() => { onBookmarksChange?.(bookmarks); }, [bookmarks, onBookmarksChange]);
+  useEffect(() => {
+    if (navigation) setViewport(clampViewport(navigation, bounds));
+  }, [navigation, bounds.startMs, bounds.endMs]);
 
   useEffect(() => {
     let cancelled = false;
@@ -581,7 +595,7 @@ export function GraphStack({ data, daily }: { data: ChartQueryResult; daily: Dai
       if (!cancelled) setBookmarks([]);
     });
     return () => { cancelled = true; };
-  }, [data.date, data.machineId]);
+  }, [data.date, data.machineId, bookmarkRevision]);
 
   function graphPreference(key: string): GraphPreference | undefined {
     return graphPreferences.find((item) => item.key === key);
@@ -759,8 +773,8 @@ export function GraphStack({ data, daily }: { data: ChartQueryResult; daily: Dai
       </div>
       <div className="graph-layout-help">Drag ⋮⋮ to reorder · drag the bottom grip to resize · pinned graphs stay at the top</div>
     </div>
-    {bookmarks.length > 0 && <div className="graph-bookmark-strip">{bookmarks.map((bookmark) => <button type="button" key={bookmark.id} className="graph-bookmark" onClick={() => setViewport(clampViewport({ startMs: bookmark.startMs, endMs: bookmark.endMs }, bounds))}><span>{bookmark.name}</span><small>{timeLabel(bookmark.startMs, true)}–{timeLabel(bookmark.endMs, true)}</small><i role="button" aria-label={`Delete ${bookmark.name}`} title="Delete saved view" onClick={(event) => { event.stopPropagation(); void deleteBookmark(bookmark.id); }}>×</i></button>)}</div>}
-    <div className="zoom-stat-strip" aria-label="Statistics for visible graph window">
+    {bookmarks.length > 0 && <div className="graph-bookmark-strip">{bookmarks.map((bookmark) => <div key={bookmark.id} className="graph-bookmark"><button type="button" onClick={() => setViewport(clampViewport({ startMs: bookmark.startMs, endMs: bookmark.endMs }, bounds))}><span>{bookmark.name}</span><small>{timeLabel(bookmark.startMs, true)}–{timeLabel(bookmark.endMs, true)}</small></button><button className="icon-button" aria-label={`Delete ${bookmark.name}`} title="Delete saved view" onClick={() => void deleteBookmark(bookmark.id)}><X size={13} /></button></div>)}</div>}
+    <details className="viewport-statistics"><summary>Viewport statistics · AHI {windowStats.ahi.toFixed(2)} · {windowStats.therapyHours.toFixed(2)} h therapy</summary><div className="zoom-stat-strip" aria-label="Statistics for visible graph window">
       <div><span>AHI</span><strong>{windowStats.ahi.toFixed(2)}</strong></div>
       <div><span>RDI</span><strong>{windowStats.rdi.toFixed(2)}</strong></div>
       <div><span>Events</span><strong>{windowStats.obstructive + windowStats.clearAirway + windowStats.hypopnea + windowStats.unclassified + windowStats.rera}</strong><small>OA {windowStats.obstructive} · CA {windowStats.clearAirway} · H {windowStats.hypopnea} · RERA {windowStats.rera}</small></div>
@@ -769,6 +783,7 @@ export function GraphStack({ data, daily }: { data: ChartQueryResult; daily: Dai
       <div><span>SpO₂ min</span><strong>{windowStats.spo2 ? windowStats.spo2.min.toFixed(0) : "—"}</strong><small>{windowStats.spo2 ? "%" : "No data"}</small></div>
       <div><span>Flow range</span><strong>{windowStats.flow ? `${windowStats.flow.min.toFixed(0)}…${windowStats.flow.max.toFixed(0)}` : "—"}</strong><small>{windowStats.flow ? "L/min" : "No data"}</small></div>
     </div>
+    </details>
     {graphRows.map((row) => row.kind === "events"
       ? <EventFlags key={row.key} series={eventSeries} interaction={interaction} pinned={graphPreference(row.key)?.pinned ?? false} height={graphPreference(row.key)?.height ?? defaultGraphHeight(row.key)} onTogglePin={() => void toggleGraphPinned(row.key)} onHeightCommit={(height) => void commitGraphHeight(row.key, height)} onDragStart={() => undefined} onDropGraph={(source, target) => void reorderGraph(source, target)} />
       : <GraphPanel key={row.key} definition={row.entry.definition} series={row.entry.series} interaction={interaction} pinned={graphPreference(row.key)?.pinned ?? false} height={graphPreference(row.key)?.height ?? defaultGraphHeight(row.key)} onTogglePin={() => void toggleGraphPinned(row.key)} onHeightCommit={(height) => void commitGraphHeight(row.key, height)} onDragStart={() => undefined} onDropGraph={(source, target) => void reorderGraph(source, target)} />)}

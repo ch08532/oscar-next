@@ -1,0 +1,6 @@
+import type { DailySummary } from "../types";
+import { therapyTime } from "../event-presentation";
+
+export function SessionsTable({ daily, onToggle, compact = false }: { daily: DailySummary; onToggle(id: number, enabled: boolean): void; compact?: boolean }) {
+  return <div className="table-scroll"><table className={compact ? "compact-table" : ""}><caption className="sr-only">Sessions for therapy date {daily.date}, device wall-clock time</caption><thead><tr><th>Included</th><th>Start</th><th>End</th><th>Usage</th>{!compact && <th>Data</th>}</tr></thead><tbody>{daily.sessions.map(session => <tr key={session.id} className={session.enabled === false ? "session-disabled" : ""}><td><label className="session-toggle"><input type="checkbox" aria-label={`Include session starting ${therapyTime(session.firstMs)}`} checked={session.enabled !== false} onChange={event => onToggle(session.id, event.target.checked)} /><span>{session.enabled === false ? "Off" : "On"}</span></label></td><td>{therapyTime(session.firstMs)}</td><td>{therapyTime(session.lastMs)}</td><td>{session.usageHours.toFixed(2)} h</td>{!compact && <td>{session.summaryOnly ? "Summary only" : "Detailed"}</td>}</tr>)}</tbody></table>{daily.sessions.length === 0 && <p className="p-3 text-[var(--muted)]">No sessions on this therapy date.</p>}</div>;
+}

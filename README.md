@@ -605,3 +605,61 @@ apps\desktop\release\OSCAR-Next-2.3.0-Setup-x64.exe
 ```
 
 The 2.0 test installer is intentionally unsigned. Windows may show an **Unknown publisher** warning until an Authenticode certificate is configured for release distribution.
+
+## Shared analytics workstation UI
+
+Desktop and browser modes use the same React 19 application, with a collapsible
+sidebar, compact Daily workspace, historical Overview charts, Statistics tables,
+and administration pages. Appearance defaults to dark; choose Light, Dark, or
+System in **Settings**. The preference is stored locally in this client.
+
+Daily retains the custom Canvas waveform/event renderer, synchronized cursor,
+shared zoom/pan, adaptive queries, pin/order/resize controls, and saved graph
+views. **Night Inspector** provides Summary, chronological Events, temporary
+Notes, and persisted Bookmarks. Selecting an event opens a two-minute analysis
+window. Notes are explicitly unsaved drafts, cleared when leaving the night.
+Viewport statistics can be expanded below the graph toolbar. On smaller displays
+the sidebar becomes compact and the inspector becomes a dismissible drawer.
+
+Overview and Statistics share the same **therapy-history timeline**: draggable
+and keyboard-accessible date handles, custom date inputs, 7/30/90-day, 6-month
+(180-day), 1-year (365-day), and All History presets. It retains the lightweight
+history query; changing the selected range does not reload the full timeline.
+Statistics exports continue using the existing desktop PDF/CSV and browser
+printable-report/download workflows. Missing backend statistics display `—`.
+
+The presentation stack uses Tailwind CSS 4 (`@tailwindcss/vite` in both builds),
+Lucide React, and vendored **Tremor Raw** Card, Badge, ProgressBar, BarChart, and
+LineChart components. Tremor Raw supports the existing React version; the older
+`@tremor/react` npm package is not required. Recharts renders only historical
+analytics, and is loaded with Overview on demand. Dense Daily signals remain
+Canvas. Supporting dependencies are `clsx`, `tailwind-merge`, `tailwind-variants`,
+and Radix Slot. See `apps/desktop/src/components/tremor/NOTICE.md` and its Apache
+license, also included in built assets under `licenses/tremor-LICENSE.txt`.
+The application remains GPL-3.0-only.
+
+UI components use the existing `OscarApi` boundary: Electron preload on desktop,
+REST in a browser. They never access SQLite or the filesystem directly. The API
+page shows the connected browser origin and documentation links; the desktop
+client does not manage or assume a running HTTP service. Import permissions,
+loopback/auth defaults, timezone rules, and diagnostic redaction remain intact.
+
+```powershell
+npm install
+npm --prefix apps/desktop install
+npm run verify
+npm run desktop:build
+npm run desktop:run
+# Browser UI; choose an explicit database path as documented above:
+npm run headless -- --database .\data\oscar-next.sqlite --allow-imports
+```
+
+See [UI-REFRESH-PLAN.md](UI-REFRESH-PLAN.md) for implementation decisions and
+[UI-VALIDATION.md](UI-VALIDATION.md) for results and remaining device validation.
+
+### Always-visible history controls
+
+On Overview and Statistics, the shared therapy-history filter is integrated into
+the sticky top bar. Custom date fields, presets, the complete timeline and its
+handles stay visible as charts/tables scroll. Statistics export buttons remain
+with the date selection. The compact header wraps its controls at laptop widths.

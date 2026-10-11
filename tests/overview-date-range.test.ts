@@ -11,7 +11,7 @@ test("overview date handles snap to inclusive days and cannot cross", () => {
   assert.equal(rangeHandleOffset(0.5, 0, 0, "start"), 0);
 });
 
-for (const preset of [7, 30, 90] as const) {
+for (const preset of [7, 30, 90, 180, 365] as const) {
   test(`${preset}-day preset includes both dates and preserves the selected end`, () => {
     const range = presetDateRange("2025-01-01", "2026-10-10", "2026-03-02", preset);
     assert.equal(range.endDate, "2026-03-02");
@@ -32,7 +32,7 @@ test("All restores both endpoints after the end date was narrowed", () => {
 });
 
 test("all presets preserve a single-day history", () => {
-  for (const preset of [7, 30, 90, "all"] as const) {
+  for (const preset of [7, 30, 90, 180, 365, "all"] as const) {
     assert.deepEqual(presetDateRange("2026-10-10", "2026-10-10", "2026-10-10", preset), {
       startDate: "2026-10-10", endDate: "2026-10-10",
     });

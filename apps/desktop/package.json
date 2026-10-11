@@ -13,17 +13,25 @@
     "dist:linux:arm64": "electron-builder --config electron-builder.yml --linux deb AppImage --arm64"
   },
   "dependencies": {
+    "@radix-ui/react-slot": "^1.4.0",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.55.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "recharts": "^3.10.1",
+    "tailwind-merge": "^3.7.0",
+    "tailwind-variants": "^3.3.1"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.6.0",
-    "electron": "^37.0.0",
-    "typescript": "^5.8.3",
-    "vite": "^7.0.0",
+    "@tailwindcss/vite": "^4.3.3",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
-    "electron-builder": "^26.0.0"
+    "@vitejs/plugin-react": "^4.6.0",
+    "electron": "^37.0.0",
+    "electron-builder": "^26.0.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.8.3",
+    "vite": "^7.0.0"
   },
   "main": "backend/src/desktop/main.js"
 }

@@ -48,7 +48,7 @@ function HeadlessRoot() {
     </section>
   </main>;
 
-  return <App />;
+  return <App deployment="browser" />;
 }
 
 createRoot(document.getElementById("root")!).render(<StrictMode><HeadlessRoot /></StrictMode>);

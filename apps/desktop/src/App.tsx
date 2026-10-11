@@ -1,10 +1,21 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { TopBarActions } from "./components/TopBarActions";
+import { useEffect, useMemo, useRef, useState, lazy, Suspense, type ChangeEvent } from "react";
 import { DEFAULT_CHART_CHANNELS } from "./channels";
 import { GraphStack } from "./Charts";
-import { Overview } from "./Overview";
+const Overview = lazy(() => import("./Overview").then(module => ({ default: module.Overview })));
 import { Statistics } from "./Statistics";
 import { ImportDialog } from "./ImportDialog";
 import { FirstRunSetup, ProfileSettingsDialog } from "./ProfileDialog";
+import { Sidebar, type AppView } from "./components/Sidebar";
+import { NightInspector, type GraphNavigation } from "./components/NightInspector";
+import { SessionsTable } from "./components/SessionsTable";
+import { AdminPages } from "./components/AdminPages";
+import { Card, MetricCard } from "./ui";
+import { useTheme } from "./theme";
+import { Channel } from "./channels";
+import { EVENT_PRESENTATION } from "./event-presentation";
+import { dateAtOffset } from "./overview-date-range";
+import { ChevronLeft, ChevronRight, Download, Moon, Sun, PanelRightOpen, CalendarDays } from "lucide-react";
 import type {
   ChartQueryResult,
   DailySummary,
@@ -17,9 +28,8 @@ import type {
   ProfileSummary,
   SetupState,
   StoredMachineSummary,
+  GraphBookmark,
 } from "./types";
-
-type AppView = "daily" | "overview" | "statistics";
 
 function todayKey(): string {
   const now = new Date();
@@ -35,11 +45,24 @@ function formatDeviceTime(ms: number): string {
   return new Date(ms).toISOString().slice(11, 16);
 }
 
-function Metric({ label, value, suffix = "" }: { label: string; value: string | number; suffix?: string }) {
-  return <div className="metric"><span>{label}</span><strong>{value}{suffix}</strong></div>;
-}
-
-export function App() {
+export function App({ deployment = "desktop" }: { deployment?: "desktop" | "browser" }) {
+  const { theme, setTheme } = useTheme();
+  const [historyToolbar, setHistoryToolbar] = useState<HTMLDivElement | null>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    const update = () => document.documentElement.style.setProperty("--workspace-header-height", `${header.getBoundingClientRect().height}px`);
+    const observer = new ResizeObserver(update);
+    observer.observe(header);
+    update();
+    return () => { observer.disconnect(); document.documentElement.style.removeProperty("--workspace-header-height"); };
+  }, []);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [graphBookmarks, setGraphBookmarks] = useState<GraphBookmark[]>([]);
+  const [bookmarkRevision, setBookmarkRevision] = useState(0);
+  const [graphNavigation, setGraphNavigation] = useState<GraphNavigation>();
   const [view, setView] = useState<AppView>("daily");
   const [appInfo, setAppInfo] = useState<AppInfo>();
   const [setup, setSetup] = useState<SetupState>();
@@ -219,9 +242,10 @@ export function App() {
   }, [machineId, dataRevision]);
 
   useEffect(() => {
-    if (machineId === undefined || view !== "daily") return;
+    if (machineId === undefined || (view !== "daily" && view !== "sessions")) return;
     let cancelled = false;
     setLoading(true); setError(undefined);
+    setDaily(undefined); setCharts(undefined); setGraphBookmarks([]); setGraphNavigation(undefined);
     Promise.all([
       window.oscar.getDaily(machineId, date),
       window.oscar.getChartSeries(machineId, date, [...DEFAULT_CHART_CHANNELS], { maxPointsPerSeries: 4_000 }),
@@ -235,67 +259,56 @@ export function App() {
 
   const needsSetup = setup?.needsSetup === true;
 
-  return <div className="app-shell">
-    <header>
-      <div><h1>OSCAR Next</h1><p>CPAP therapy analysis{appInfo ? ` · v${appInfo.version}` : ""}</p></div>
-      <div className="header-actions">
-        {database && activeProfile && <label className="header-profile">Profile<select value={activeProfile.id} onChange={(event: ChangeEvent<HTMLSelectElement>) => void selectProfile(Number(event.target.value))}>{profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name}</option>)}</select></label>}
-        {database && <button className="header-secondary" onClick={() => setShowProfileSettings(true)}>Profiles & time</button>}
-        <button className="header-secondary" onClick={() => void createDiagnostics()}>Diagnostics</button>
-        <button className="header-secondary" onClick={chooseImportSource}>Import data</button>
-        <button onClick={openDatabase}>{database ? "Change database" : "Open database"}</button>
-      </div>
-    </header>
-
-    <nav>
-      <button className={view === "daily" ? "active" : ""} onClick={() => setView("daily")}>Daily</button>
-      <button className={view === "overview" ? "active" : ""} onClick={() => setView("overview")} disabled={!database}>Overview</button>
-      <button className={view === "statistics" ? "active" : ""} onClick={() => setView("statistics")} disabled={!database}>Statistics</button>
-    </nav>
-
-    <main>
-      {notice && <div className="notice">{notice}</div>}
-      {!database && !needsSetup && <section className="empty"><h2>Open a database or import your CPAP card</h2><p>You can open an existing OSCAR Next database, or import directly from an SD card/backup folder and create one.</p><div className="empty-actions"><button onClick={chooseImportSource}>Import CPAP data</button><button className="secondary" onClick={openDatabase}>Open database</button></div></section>}
-      {database && <>
-        <section className="toolbar">
-          <label>Machine<select value={machineId ?? ""} onChange={(event: ChangeEvent<HTMLSelectElement>) => selectMachine(Number(event.target.value))}>{machines.map((item) => <option key={item.id} value={item.id}>{item.brand} {item.model}</option>)}</select></label>
-          {view === "daily" && <label>Therapy date<input type="date" value={date} onChange={(event: ChangeEvent<HTMLInputElement>) => setDate(event.target.value)} /></label>}
-          {view !== "daily" && <div className="toolbar-view-title"><strong>{view === "overview" ? "Overview" : "Statistics"}</strong><span>{view === "overview" ? "Long-term therapy trends" : "Long-term summary tables"}</span></div>}
-          <div className="device"><strong>{machine?.brand} {machine?.model}</strong><span>{machine?.serial ? `Serial ${machine.serial}` : ""}</span><span>{machineTime ? `Device time · ${machineTime.deviceTimeZone}` : ""}</span></div>
-        </section>
-
-        {machines.length === 0 && <section className="empty profile-empty"><h2>No machines in {activeProfile?.name ?? "this profile"}</h2><p>Import a CPAP card to add therapy data to this profile.</p><div className="empty-actions"><button onClick={chooseImportSource}>Import CPAP data</button><button className="secondary" disabled={importing} onClick={() => void loadDemoData()}>{importing ? "Loading demo…" : "Load demo data"}</button></div></section>}
-
-        {view === "daily" && machineId !== undefined && <>
-          {error && <div className="error">{error}</div>}
-          {loading && <div className="loading">Loading therapy data…</div>}
-          {daily && <>
-            <section className="metrics">
-              <Metric label="Usage" value={daily.usageHours.toFixed(2)} suffix=" h" />
-              <Metric label="AHI" value={daily.ahi.toFixed(2)} />
-              <Metric label="RDI" value={daily.rdi.toFixed(2)} />
-              <Metric label="Pressure 95%" value={daily.pressure?.percentile95.toFixed(1) ?? "—"} suffix={daily.pressure ? " cmH₂O" : ""} />
-              <Metric label="Leak 95%" value={daily.leak?.percentile95.toFixed(1) ?? "—"} suffix={daily.leak ? " L/min" : ""} />
+  return <div className={`app-shell grid min-h-screen max-[1150px]:grid-cols-[72px_minmax(0,1fr)] ${sidebarCollapsed ? "sidebar-compact grid-cols-[72px_minmax(0,1fr)]" : "grid-cols-[228px_minmax(0,1fr)]"}`}>
+    <a href="#workspace" className="skip-link">Skip to workspace</a>
+    <Sidebar view={view} onNavigate={setView} onImport={chooseImportSource} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} profile={activeProfile} version={appInfo?.version} />
+    <div className="workspace-shell min-w-0">
+      <header ref={headerRef} className="workspace-header sticky top-0 z-10 border-b border-[var(--border)] bg-[var(--background)]">
+        <div className="workspace-header-main flex min-h-[76px] flex-wrap items-center justify-between gap-2.5 px-5 py-3 max-[1150px]:px-3.5">
+        <div className="page-title"><small>THERAPY ANALYSIS</small><h1>{view === "api" ? "API / Swagger" : view[0].toUpperCase() + view.slice(1)}</h1></div>
+        <div className="header-controls">
+          {(view === "daily" || view === "sessions") && database && <div className="date-navigation"><button className="icon-button" aria-label="Previous therapy day" title="Previous therapy day" onClick={() => setDate(dateAtOffset(date, -1))}><ChevronLeft size={16} /></button><label className="date-field"><CalendarDays size={15} /><span className="sr-only">Therapy date</span><input type="date" value={date} onChange={event => { if (event.target.value) setDate(event.target.value); }} /></label><button className="icon-button" aria-label="Next therapy day" title="Next therapy day" onClick={() => setDate(dateAtOffset(date, 1))}><ChevronRight size={16} /></button><button className="secondary" disabled={machine?.lastSessionTime === undefined} onClick={() => { if (machine?.lastSessionTime !== undefined) setDate(therapyDateForTimestamp(machine.lastSessionTime)); }}>Latest</button></div>}
+          {database && <label className="machine-select"><span className="sr-only">Machine</span><select value={machineId ?? ""} aria-label="Machine" onChange={event => selectMachine(Number(event.target.value))}>{machines.length === 0 && <option value="">No devices</option>}{machines.map(item => <option key={item.id} value={item.id}>{item.brand} {item.model}</option>)}</select></label>}
+          <button className="import-button" onClick={chooseImportSource}><Download size={15} /><span>Import Data</span></button>
+          <button className="icon-button" title="Toggle light/dark theme" aria-label="Toggle light/dark theme" onClick={() => setTheme(document.documentElement.classList.contains("dark") ? "light" : "dark")}>{theme === "light" ? <Moon size={17} /> : <Sun size={17} />}</button>
+          {view === "daily" && <button className="icon-button" aria-label={inspectorOpen ? "Hide Night Inspector" : "Show Night Inspector"} aria-expanded={inspectorOpen} onClick={() => setInspectorOpen(!inspectorOpen)} title="Night Inspector"><PanelRightOpen size={17} /></button>}
+          <TopBarActions><button onClick={openDatabase}>{database ? "Change database" : "Open database"}</button><button disabled={importing} onClick={() => void loadDemoData()}>Load demo data</button><button onClick={() => setView("profiles")}>Profiles & time</button><button onClick={() => setView("diagnostics")}>Diagnostics</button></TopBarActions>
+        </div>
+        </div>
+        {(view === "overview" || view === "statistics") && <div ref={setHistoryToolbar} className="history-toolbar w-full min-w-0 border-t border-[var(--border)] px-5 pt-2 pb-3 max-[1150px]:px-3.5" />}
+      </header>
+      <main id="workspace" className="workspace-content min-w-0 px-5 pt-[18px] pb-10 max-[1150px]:p-3.5" tabIndex={-1}>
+        {notice && <div className="notice" role="status">{notice}</div>}
+        {error && <div className="error" role="alert">{error}</div>}
+        {!database && !needsSetup && <section className="empty"><h2>Open your therapy workspace</h2><p>Open an existing OSCAR Next database or import a CPAP card.</p><div className="empty-actions"><button onClick={chooseImportSource}>Import Data</button><button className="secondary" onClick={openDatabase}>Open database</button></div></section>}
+        {database && machines.length === 0 && <section className="empty"><h2>No devices in {activeProfile?.name ?? "this profile"}</h2><p>Import a CPAP card or explore the synthetic demo.</p><div className="empty-actions"><button onClick={chooseImportSource}>Import Data</button><button className="secondary" disabled={importing} onClick={() => void loadDemoData()}>Try demo data</button></div></section>}
+        {(view === "daily" || view === "sessions") && machineId !== undefined && <>
+          {loading && <div className="loading-skeleton" role="status" aria-label="Loading therapy data"><span /><span /><span /></div>}
+          {daily && view === "sessions" && <><div className="mb-4"><h2 className="text-lg font-semibold">Sessions · {daily.date}</h2><p className="mt-1 text-sm text-[var(--muted)]">{machine?.brand} {machine?.model} · Device wall-clock time ({daily.deviceTimeZone})</p></div><Card className="panel"><SessionsTable daily={daily} onToggle={(id, enabled) => void setSessionEnabled(id, enabled)} /></Card></>}
+          {daily && view === "daily" && <>
+            <section className="metrics daily-metrics" aria-label="Night metrics">
+              <MetricCard label="Usage" value={`${Math.floor(Math.round(daily.usageHours * 60) / 60)}h ${Math.round(daily.usageHours * 60) % 60}m`} detail={`${daily.sessions.filter(session => session.enabled !== false).length} included sessions`} />
+              <MetricCard label="AHI" value={daily.ahi.toFixed(2)} detail="Events / therapy hour" />
+              <MetricCard label="RDI" value={daily.rdi.toFixed(2)} detail="Respiratory disturbances / h" />
+              <MetricCard label="Pressure 95%" value={daily.pressure?.percentile95.toFixed(1) ?? "—"} unit={daily.pressure ? "cmH₂O" : undefined} detail="Selected therapy night" />
+              <MetricCard label="Leak 95%" value={daily.leak?.percentile95.toFixed(1) ?? "—"} unit={daily.leak ? "L/min" : undefined} detail="Selected therapy night" />
             </section>
-
-            <section className="content-grid">
-              <article className="panel events"><h2>Events</h2>{daily.sessions.some((session) => session.enabled !== false && session.summaryOnly)
-                ? <><p>Summary-only data: event tiles show indices per therapy hour.</p><div className="event-grid"><Metric label="OA index" value={daily.eventIndices.obstructive.toFixed(2)} /><Metric label="CA index" value={daily.eventIndices.clearAirway.toFixed(2)} /><Metric label="H index" value={daily.eventIndices.hypopnea.toFixed(2)} /><Metric label="UA index" value={daily.eventIndices.unclassified.toFixed(2)} /><Metric label="RERA index" value={daily.eventIndices.rera.toFixed(2)} /></div></>
-                : <div className="event-grid"><Metric label="Obstructive" value={daily.eventCounts.obstructive} /><Metric label="Central" value={daily.eventCounts.clearAirway} /><Metric label="Hypopnea" value={daily.eventCounts.hypopnea} /><Metric label="Unclassified" value={daily.eventCounts.unclassified} /><Metric label="RERA" value={daily.eventCounts.rera} /></div>}
-              </article>
-
-              <article className="panel sessions-panel"><div className="panel-heading-row"><div><h2>Sessions</h2><p>Times are the CPAP device wall clock ({daily.deviceTimeZone}). Disabled sessions are excluded from calculations, trends, and graphs.</p></div></div>{daily.sessions.length === 0 ? <p>No therapy sessions for this day.</p> : <table><thead><tr><th>Included</th><th>Start</th><th>End</th><th>Usage</th><th>Data</th></tr></thead><tbody>{daily.sessions.map((session) => <tr key={session.id} className={session.enabled === false ? "session-disabled" : ""}><td><label className="session-toggle"><input type="checkbox" checked={session.enabled !== false} onChange={(event: ChangeEvent<HTMLInputElement>) => void setSessionEnabled(session.id, event.target.checked)} /><span>{session.enabled === false ? "Off" : "On"}</span></label></td><td>{formatDeviceTime(session.firstMs)}</td><td>{formatDeviceTime(session.lastMs)}</td><td>{session.usageHours.toFixed(2)} h</td><td>{session.summaryOnly ? "Summary" : "Detailed"}</td></tr>)}</tbody></table>}</article>
-
-              <article className="panel graphs-panel"><div className="graphs-title"><div><h2>Therapy Graphs</h2><p>Synchronized detailed signals in device wall-clock time.</p></div><span>{daily.availableChannels.length} stored channels</span></div>{charts ? <GraphStack data={charts} daily={daily} /> : <div className="graph-empty">Chart data is loading…</div>}</article>
-            </section>
+            <div className="daily-event-bar"><span className="text-xs font-medium text-[var(--muted)]">{daily.sessions.some(session => session.enabled !== false && session.summaryOnly) ? "EVENT INDICES / H" : "EVENTS"}</span>{[Channel.ObstructiveApnea, Channel.ClearAirway, Channel.Hypopnea, Channel.UnclassifiedApnea, Channel.RERA].map((channel, index) => {
+              const summary = daily.sessions.some(session => session.enabled !== false && session.summaryOnly);
+              const key = (["obstructive", "clearAirway", "hypopnea", "unclassified", "rera"] as const)[index];
+              return <span key={channel} className="event-chip" title={EVENT_PRESENTATION[channel].name} style={{ borderColor: `${EVENT_PRESENTATION[channel].color}55`, color: EVENT_PRESENTATION[channel].color }}><i style={{ background: EVENT_PRESENTATION[channel].color }} />{EVENT_PRESENTATION[channel].label}<strong>{summary ? daily.eventIndices[key].toFixed(2) : daily.eventCounts[key]}</strong></span>;
+            })}{charts?.series.some(series => series.channelId === Channel.CSR) && <span className="event-chip" style={{ color: EVENT_PRESENTATION[Channel.CSR].color }}>CSR <strong>{charts.series.filter(series => series.channelId === Channel.CSR).reduce((sum, series) => sum + series.timesMs.length, 0)}</strong><small>spans</small></span>}<span className="ml-auto text-xs text-[var(--muted)]">{daily.date} · {daily.deviceTimeZone}</span></div>
+            <div className={`daily-workspace grid grid-cols-[minmax(0,1fr)] items-start gap-3.5 ${inspectorOpen ? "with-inspector min-[1351px]:grid-cols-[minmax(0,1fr)_336px]" : ""}`}>
+              <Card className="graphs-panel min-w-0 border-[var(--border)] bg-[var(--surface)] p-0 shadow-none dark:border-[var(--border)] dark:bg-[var(--surface)]"><div className="graphs-title"><div><h2>Waveform workspace</h2><p>Synchronised signals · device wall-clock time</p></div><span>{daily.availableChannels.length} stored channels</span></div>{charts ? <GraphStack data={charts} daily={daily} navigation={graphNavigation} bookmarkRevision={bookmarkRevision} onBookmarksChange={setGraphBookmarks} /> : <div className="graph-empty">Loading chart data…</div>}</Card>
+              {inspectorOpen && <button className="inspector-shade" aria-label="Dismiss Night Inspector" onClick={() => setInspectorOpen(false)} />}{inspectorOpen && <NightInspector key={`${machineId}-${daily.date}`} daily={daily} charts={charts} onClose={() => setInspectorOpen(false)} onToggleSession={(id, enabled) => void setSessionEnabled(id, enabled)} onDate={setDate} bookmarks={graphBookmarks} onBookmarkDelete={id => { void window.oscar.deleteGraphBookmark(machineId, id).then(() => setBookmarkRevision(value => value + 1)).catch(cause => setError(String(cause))); }} onNavigate={(startMs, endMs) => setGraphNavigation({ startMs, endMs, requestId: Date.now() })} />}
+            </div>
           </>}
         </>}
-
-        {view === "overview" && machine && machineId !== undefined && <Overview machine={machine} machineId={machineId} defaultEndDate={date} />}
-        {view === "statistics" && machine && machineId !== undefined && <Statistics machine={machine} machineId={machineId} defaultEndDate={date} />}
-      </>}
-    </main>
-
+        {view === "overview" && machine && machineId !== undefined && <Suspense fallback={<div className="loading" role="status">Loading analytics…</div>}><Overview machine={machine} machineId={machineId} defaultEndDate={date} toolbarTarget={historyToolbar} /></Suspense>}
+        {view === "statistics" && machine && machineId !== undefined && <Statistics machine={machine} machineId={machineId} defaultEndDate={date} toolbarTarget={historyToolbar} />}
+        {!["daily", "overview", "statistics", "sessions"].includes(view) && <AdminPages view={view} machines={machines} machineId={machineId} onSelectMachine={selectMachine} onProfiles={() => setShowProfileSettings(true)} onImport={chooseImportSource} onDiagnostics={() => void createDiagnostics()} onStatistics={() => setView("statistics")} appInfo={appInfo} deployment={deployment} theme={theme} onTheme={setTheme} />}
+      </main>
+    </div>
     {setup && needsSetup && <FirstRunSetup systemTimeZone={setup.systemTimeZone} onComplete={completeSetup} onOpenExisting={openDatabase} onTryDemo={loadDemoData} />}
     {showProfileSettings && database && <ProfileSettingsDialog profiles={profiles} activeProfile={activeProfile} machine={machine} machineTime={machineTime} onClose={() => setShowProfileSettings(false)} onSelect={selectProfile} onCreate={createProfile} onUpdate={updateProfile} onSetMachineTimeZone={setCurrentMachineTimeZone} />}
     {importPreview && <ImportDialog preview={importPreview} progress={importProgress} result={importResult} importing={importing} databaseOpen={Boolean(database)} error={importError} automaticDetectionLabel={automaticDetectionLabel} onImport={runImport} onClose={closeImportDialog} />}

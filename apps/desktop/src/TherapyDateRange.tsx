@@ -1,10 +1,12 @@
+import { Card } from "./ui";
+import { createPortal } from "react-dom";
 import { useRef, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { clampRangeOffset, dateAtOffset, dayOffset, keyboardRangeOffset, presetDateRange, rangeHandleOffset, type RangeEdge } from "./overview-date-range";
 import type { TherapyHistoryDay } from "./types";
 
 type Edge = RangeEdge;
 
-export function TherapyDateRange({ firstDate, lastDate, startDate, endDate, days, loading, onChange, actions }: {
+export function TherapyDateRange({ firstDate, lastDate, startDate, endDate, days, loading, onChange, actions, toolbarTarget }: {
   firstDate: string;
   lastDate: string;
   startDate: string;
@@ -13,6 +15,7 @@ export function TherapyDateRange({ firstDate, lastDate, startDate, endDate, days
   loading: boolean;
   onChange(start: string, end: string): void;
   actions?: ReactNode;
+  toolbarTarget?: HTMLElement | null;
 }) {
   const track = useRef<HTMLDivElement>(null);
   const drag = useRef<Edge | undefined>(undefined);
@@ -56,22 +59,22 @@ export function TherapyDateRange({ firstDate, lastDate, startDate, endDate, days
     update(edge, next);
   }
 
-  function applyPreset(preset: 7 | 30 | 90 | "all") {
+  function applyPreset(preset: 7 | 30 | 90 | 180 | 365 | "all") {
     const next = presetDateRange(firstDate, lastDate, endDate, preset);
     onChange(next.startDate, next.endDate);
   }
 
-  return <section className="overview-date-range" aria-label="Therapy history date range" aria-busy={loading}>
+  const filter = <Card asChild className={toolbarTarget ? "border-0 bg-transparent p-0" : "p-4"}><section className="overview-date-range" aria-label="Therapy history date range" aria-busy={loading}>
     <div className="overview-date-heading"><strong>Therapy history</strong><span>{loading ? "Loading history…" : `${dataDays.length} days with data`} · {startDate} — {endDate}</span></div>
     <div className="overview-range-toolbar overview-date-controls">
-      <div className="overview-range-fields">
+      <div className="overview-range-fields" role="group" aria-label="Custom date range">
         <label>Start date<input type="date" min={firstDate} max={endDate} value={startDate} onChange={(event) => onChange(event.target.value, endDate)} /></label>
         <label>End date<input type="date" min={startDate} max={lastDate} value={endDate} onChange={(event) => onChange(startDate, event.target.value)} /></label>
       </div>
-      <div className="range-presets"><span>Range</span>{([7, 30, 90] as const).map((count) => <button key={count} type="button" className="secondary" onClick={() => applyPreset(count)}>{count} days</button>)}<button type="button" className="secondary" onClick={() => applyPreset("all")}>All</button></div>
+      <div className="range-presets"><span>Range</span>{([7, 30, 90, 180, 365] as const).map((count) => <button key={count} type="button" className="secondary" onClick={() => applyPreset(count)}>{count === 180 ? "6 months" : count === 365 ? "1 year" : `${count} days`}</button>)}<button type="button" className="secondary" onClick={() => applyPreset("all")}>All History</button></div>
       {actions}
     </div>
-    <p id="overview-date-help">Drag either handle to select dates, or use the arrow keys. Marks show included sessions, including summary-only nights.</p>
+    <p id="overview-date-help" className={toolbarTarget ? "sr-only" : undefined}>Drag either handle to select dates, or use the arrow keys. Marks show included sessions, including summary-only nights.</p>
     <div ref={track} className={`overview-date-track${start === end ? " single-day" : ""}`}>
       <div className="overview-date-selection" style={{ left: `${percent(start)}%`, width: `${percent(end) - percent(start)}%` }} />
       <svg className="overview-date-marks" viewBox="0 0 1000 48" preserveAspectRatio="none" role="img" aria-label="Days with included therapy sessions">
@@ -94,5 +97,6 @@ export function TherapyDateRange({ firstDate, lastDate, startDate, endDate, days
         onKeyDown={(event) => keyDown(edge, event)} title={`${edge === "start" ? "Start" : "End"}: ${edge === "start" ? startDate : endDate}`}>{edge === "start" ? "‹" : "›"}</button>)}
     </div>
     <div className="overview-date-axis"><span>{firstDate}</span><span><i /> Days with data <i className="gap" /> No included sessions</span><span>{lastDate}</span></div>
-  </section>;
+  </section></Card>;
+  return toolbarTarget ? createPortal(filter, toolbarTarget) : filter;
 }

@@ -1,11 +1,15 @@
+import { Channel } from "./channels";
+import { EVENT_PRESENTATION } from "./event-presentation";
 import { useEffect, useMemo, useState } from "react";
 import type { TherapyHistoryDay, StatisticsSummary, StoredMachineSummary } from "./types";
 import { TherapyDateRange } from "./TherapyDateRange";
+import { MetricCard as StatCard, Card, CalculatingIndicator } from "./ui";
 
 interface StatisticsProps {
   machine: StoredMachineSummary;
   machineId: number;
   defaultEndDate: string;
+  toolbarTarget?: HTMLElement | null;
 }
 
 const DAY_MS = 86_400_000;
@@ -36,11 +40,7 @@ function settingValue(id: number, value: unknown): string {
   return String(value);
 }
 
-function StatCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
-  return <div className="metric overview-metric"><span>{label}</span><strong>{value}</strong>{detail && <small>{detail}</small>}</div>;
-}
-
-export function Statistics({ machine, machineId, defaultEndDate }: StatisticsProps) {
+export function Statistics({ machine, machineId, defaultEndDate, toolbarTarget }: StatisticsProps) {
   const machineFirst = machine.firstSessionTime === undefined ? defaultEndDate : therapyDateFromTimestamp(machine.firstSessionTime);
   const machineLast = machine.lastSessionTime === undefined ? defaultEndDate : therapyDateFromTimestamp(machine.lastSessionTime);
   const initialEnd = defaultEndDate < machineFirst || defaultEndDate > machineLast ? machineLast : defaultEndDate;
@@ -106,44 +106,41 @@ export function Statistics({ machine, machineId, defaultEndDate }: StatisticsPro
   }
 
   return <>
-    <TherapyDateRange firstDate={machineFirst} lastDate={machineLast} startDate={startDate} endDate={endDate}
+    <TherapyDateRange toolbarTarget={toolbarTarget} firstDate={machineFirst} lastDate={machineLast} startDate={startDate} endDate={endDate}
       days={history} loading={historyLoading} onChange={(start, end) => { setStartDate(start); setEndDate(end); }}
       actions={<div className="statistics-export"><button className="secondary" onClick={() => exportFile("csv")}>Export CSV</button><button onClick={() => exportFile("pdf")}>Export PDF</button></div>} />
 
     {error && <div className="error">{error}</div>}
     {historyError && <div className="error">Unable to load therapy history: {historyError}</div>}
     {exportMessage && <div className="success">{exportMessage}</div>}
-    {loading && <div className="loading">Calculating statistics…</div>}
+    {loading && <CalculatingIndicator />}
 
     {stats && <>
       <section className="metrics overview-metrics statistics-metrics">
         <StatCard label="Days used" value={`${stats.usedDays} / ${stats.totalDays}`} detail={`${pct(stats.usedDays, stats.totalDays)} of selected days`} />
         <StatCard label="≥ 4 hours" value={`${stats.compliantDays}`} detail={`${pct(stats.compliantDays, stats.usedDays)} of used days`} />
         <StatCard label="Average usage" value={formatHours(stats.averageUsageHours)} detail={`${stats.totalUsageHours.toFixed(1)} h total`} />
-        <StatCard label="Median usage" value={formatHours(stats.medianUsageHours)} />
-        <StatCard label="AHI" value={stats.ahi.toFixed(2)} detail={`RDI ${stats.rdi.toFixed(2)}`} />
-        <StatCard label="Pressure 95%" value={stats.pressure ? `${stats.pressure.percentile95.toFixed(1)} cmH₂O` : "—"} detail={stats.pressure ? `Median ${stats.pressure.percentile50.toFixed(1)} · Max ${stats.pressure.max.toFixed(1)}` : undefined} />
-        <StatCard label="Leak 95%" value={stats.leak ? `${stats.leak.percentile95.toFixed(1)} L/min` : "—"} detail={stats.leak ? `Median ${stats.leak.percentile50.toFixed(1)} · Max ${stats.leak.max.toFixed(1)}` : undefined} />
+        <StatCard label="Aggregate AHI" value={stats.ahi.toFixed(2)} detail={`RDI ${stats.rdi.toFixed(2)}`} />
       </section>
 
       <section className="statistics-grid">
-        <article className="panel"><h2>Respiratory event indices</h2><table><thead><tr><th>Event</th><th>Total</th><th>Index / h</th></tr></thead><tbody>
-          <tr><td>Obstructive apnea</td><td>{stats.eventCounts.obstructive}</td><td>{stats.eventIndices.obstructive.toFixed(2)}</td></tr>
-          <tr><td>Clear airway / central</td><td>{stats.eventCounts.clearAirway}</td><td>{stats.eventIndices.clearAirway.toFixed(2)}</td></tr>
-          <tr><td>Hypopnea</td><td>{stats.eventCounts.hypopnea}</td><td>{stats.eventIndices.hypopnea.toFixed(2)}</td></tr>
-          <tr><td>Unclassified apnea</td><td>{stats.eventCounts.unclassified}</td><td>{stats.eventIndices.unclassified.toFixed(2)}</td></tr>
-          <tr><td>RERA</td><td>{stats.eventCounts.rera}</td><td>{stats.eventIndices.rera.toFixed(2)}</td></tr>
-        </tbody></table></article>
+        <Card className="panel"><h2>Respiratory event indices</h2><table><thead><tr><th>Event</th><th>Total</th><th>Index / h</th></tr></thead><tbody>
+          <tr><td><span className="inline-flex items-center gap-2"><i className="h-2 w-2 shrink-0 rounded-sm" style={{ background: EVENT_PRESENTATION[Channel.ObstructiveApnea].color }} />Obstructive apnea</span></td><td>{stats.eventCounts.obstructive}</td><td>{stats.eventIndices.obstructive.toFixed(2)}</td></tr>
+          <tr><td><span className="inline-flex items-center gap-2"><i className="h-2 w-2 shrink-0 rounded-sm" style={{ background: EVENT_PRESENTATION[Channel.ClearAirway].color }} />Clear airway / central</span></td><td>{stats.eventCounts.clearAirway}</td><td>{stats.eventIndices.clearAirway.toFixed(2)}</td></tr>
+          <tr><td><span className="inline-flex items-center gap-2"><i className="h-2 w-2 shrink-0 rounded-sm" style={{ background: EVENT_PRESENTATION[Channel.Hypopnea].color }} />Hypopnea</span></td><td>{stats.eventCounts.hypopnea}</td><td>{stats.eventIndices.hypopnea.toFixed(2)}</td></tr>
+          <tr><td><span className="inline-flex items-center gap-2"><i className="h-2 w-2 shrink-0 rounded-sm" style={{ background: EVENT_PRESENTATION[Channel.UnclassifiedApnea].color }} />Unclassified apnea</span></td><td>{stats.eventCounts.unclassified}</td><td>{stats.eventIndices.unclassified.toFixed(2)}</td></tr>
+          <tr><td><span className="inline-flex items-center gap-2"><i className="h-2 w-2 shrink-0 rounded-sm" style={{ background: EVENT_PRESENTATION[Channel.RERA].color }} />RERA</span></td><td>{stats.eventCounts.rera}</td><td>{stats.eventIndices.rera.toFixed(2)}</td></tr>
+        </tbody></table></Card>
 
-        <article className="panel"><h2>Pressure & leak distribution</h2><table><thead><tr><th>Signal</th><th>Average</th><th>Median</th><th>95%</th><th>Max</th></tr></thead><tbody>
-          <tr><td>Pressure</td><td>{stats.pressure?.average.toFixed(1) ?? "—"}</td><td>{stats.pressure?.percentile50.toFixed(1) ?? "—"}</td><td>{stats.pressure?.percentile95.toFixed(1) ?? "—"}</td><td>{stats.pressure?.max.toFixed(1) ?? "—"}</td></tr>
-          <tr><td>Leak</td><td>{stats.leak?.average.toFixed(1) ?? "—"}</td><td>{stats.leak?.percentile50.toFixed(1) ?? "—"}</td><td>{stats.leak?.percentile95.toFixed(1) ?? "—"}</td><td>{stats.leak?.max.toFixed(1) ?? "—"}</td></tr>
-        </tbody></table></article>
+        <Card className="panel"><h2>Detailed statistics</h2><table><thead><tr><th>Signal</th><th>Average</th><th>Median</th><th>95%</th><th>Max</th></tr></thead><tbody>
+          <tr><td>Usage (h)</td><td>{stats.averageUsageHours.toFixed(2)}</td><td>{stats.medianUsageHours.toFixed(2)}</td><td>—</td><td>—</td></tr><tr><td>Pressure (cmH₂O)</td><td>{stats.pressure?.average.toFixed(1) ?? "—"}</td><td>{stats.pressure?.percentile50.toFixed(1) ?? "—"}</td><td>{stats.pressure?.percentile95.toFixed(1) ?? "—"}</td><td>{stats.pressure?.max.toFixed(1) ?? "—"}</td></tr>
+          <tr><td>Leak (L/min)</td><td>{stats.leak?.average.toFixed(1) ?? "—"}</td><td>{stats.leak?.percentile50.toFixed(1) ?? "—"}</td><td>{stats.leak?.percentile95.toFixed(1) ?? "—"}</td><td>{stats.leak?.max.toFixed(1) ?? "—"}</td></tr>
+        </tbody></table></Card>
       </section>
 
-      <section className="panel statistics-section"><h2>Therapy settings history</h2>{stats.settingsHistory.length === 0 ? <p>No settings were stored for this range.</p> : <div className="table-scroll"><table><thead><tr><th>Period</th><th>Sessions</th>{settingIds.map((id) => <th key={id}>{SETTING_NAMES[id] ?? `Setting ${id}`}</th>)}</tr></thead><tbody>{stats.settingsHistory.map((period, index) => <tr key={`${period.startDate}-${index}`}><td>{period.startDate === period.endDate ? period.startDate : `${period.startDate} → ${period.endDate}`}</td><td>{period.sessionCount}</td>{settingIds.map((id) => <td key={id}>{settingValue(id, period.settings[id])}</td>)}</tr>)}</tbody></table></div>}</section>
+      <Card className="panel statistics-section"><h2>Therapy settings history</h2>{stats.settingsHistory.length === 0 ? <p>No settings were stored for this range.</p> : <div className="table-scroll"><table><thead><tr><th>Period</th><th>Sessions</th>{settingIds.map((id) => <th key={id}>{SETTING_NAMES[id] ?? `Setting ${id}`}</th>)}</tr></thead><tbody>{stats.settingsHistory.map((period, index) => <tr key={`${period.startDate}-${index}`}><td>{period.startDate === period.endDate ? period.startDate : `${period.startDate} → ${period.endDate}`}</td><td>{period.sessionCount}</td>{settingIds.map((id) => <td key={id}>{settingValue(id, period.settings[id])}</td>)}</tr>)}</tbody></table></div>}</Card>
 
-      <section className="panel statistics-section"><h2>Daily statistics</h2><div className="table-scroll"><table><thead><tr><th>Date</th><th>Usage</th><th>AHI</th><th>RDI</th><th>OA</th><th>CA</th><th>H</th><th>RERA</th><th>P95</th><th>L95</th></tr></thead><tbody>{stats.days.map((day) => <tr key={day.date}><td>{day.date}</td><td>{day.usageHours.toFixed(2)} h</td><td>{day.ahi.toFixed(2)}</td><td>{day.rdi.toFixed(2)}</td><td>{day.obstructive}</td><td>{day.clearAirway}</td><td>{day.hypopnea}</td><td>{day.rera}</td><td>{day.pressure95?.toFixed(1) ?? "—"}</td><td>{day.leak95?.toFixed(1) ?? "—"}</td></tr>)}</tbody></table></div></section>
+      <Card className="panel statistics-section"><h2>Daily statistics</h2><div className="table-scroll"><table><thead><tr><th>Date</th><th>Usage</th><th>AHI</th><th>RDI</th><th>OA</th><th>CA</th><th>H</th><th>RERA</th><th>P95</th><th>L95</th></tr></thead><tbody>{stats.days.map((day) => <tr key={day.date}><td>{day.date}</td><td>{day.usageHours.toFixed(2)} h</td><td>{day.ahi.toFixed(2)}</td><td>{day.rdi.toFixed(2)}</td><td>{day.obstructive}</td><td>{day.clearAirway}</td><td>{day.hypopnea}</td><td>{day.rera}</td><td>{day.pressure95?.toFixed(1) ?? "—"}</td><td>{day.leak95?.toFixed(1) ?? "—"}</td></tr>)}</tbody></table></div></Card>
     </>}
   </>;
 }

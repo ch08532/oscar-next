@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import type { OverviewDaySummary, StoredMachineSummary, TherapyHistoryDay } from "./types";
 import { TherapyDateRange } from "./TherapyDateRange";
 import { summarizeOverviewDays } from "./overview-summary";
+import { Card, MetricCard, CalculatingIndicator } from "./ui";
+import { BarChart } from "./components/tremor/BarChart";
+import { LineChart } from "./components/tremor/LineChart";
+import type { AvailableChartColorsKeys } from "./components/tremor/chartColors";
 
 type OverviewMetric = "usage" | "ahi" | "events" | "pressure" | "leak";
-
-type ChartPoint = { date: string; values: number[] };
 
 type SeriesDefinition = {
   label: string;
@@ -17,6 +19,7 @@ interface OverviewProps {
   machine: StoredMachineSummary;
   machineId: number;
   defaultEndDate: string;
+  toolbarTarget?: HTMLElement | null;
 }
 
 const DAY_MS = 86_400_000;
@@ -38,103 +41,46 @@ function formatHours(hours: number): string {
   return `${hours.toFixed(hours >= 10 ? 1 : 2)} h`;
 }
 
-function MetricCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
-  return <div className="metric overview-metric"><span>{label}</span><strong>{value}</strong>{detail && <small>{detail}</small>}</div>;
-}
-
-function chartDateLabel(date: string): string {
-  return date.slice(5);
-}
-
 function niceMax(value: number): number {
   if (!Number.isFinite(value) || value <= 0) return 1;
   const magnitude = 10 ** Math.floor(Math.log10(value));
   const normalized = value / magnitude;
-  const nice = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
-  return nice * magnitude;
+  return (normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10) * magnitude;
 }
 
-function TrendChart({
-  title,
-  subtitle,
-  days,
-  series,
-  kind = "line",
-  threshold,
-  unit = "",
-}: {
-  title: string;
-  subtitle?: string;
-  days: readonly OverviewDaySummary[];
-  series: readonly SeriesDefinition[];
-  kind?: "line" | "bar" | "stacked";
-  threshold?: number;
-  unit?: string;
+function TrendChart({ title, subtitle, days, series, kind = "line", threshold, unit = "" }: {
+  title: string; subtitle: string; days: OverviewDaySummary[]; series: SeriesDefinition[];
+  kind?: "line" | "bar" | "stacked"; threshold?: number; unit?: string;
 }) {
-  const width = 1000;
-  const height = 280;
-  const margin = { left: 58, right: 18, top: 26, bottom: 42 };
-  const plotWidth = width - margin.left - margin.right;
-  const plotHeight = height - margin.top - margin.bottom;
-
-  const chartPoints: ChartPoint[] = days.map((day) => ({
-    date: day.date,
-    values: series.map((item) => item.getValue(day) ?? 0),
-  }));
-
-  const rawMax = kind === "stacked"
-    ? Math.max(0, ...chartPoints.map((point) => point.values.reduce((sum, value) => sum + Math.max(0, value), 0)))
-    : Math.max(0, ...chartPoints.flatMap((point) => point.values));
-  const yMax = niceMax(Math.max(rawMax, threshold ?? 0));
-  const xFor = (index: number) => margin.left + (days.length <= 1 ? plotWidth / 2 : (index / (days.length - 1)) * plotWidth);
-  const yFor = (value: number) => margin.top + plotHeight - (Math.max(0, value) / yMax) * plotHeight;
-  const barWidth = Math.max(2, Math.min(22, (plotWidth / Math.max(1, days.length)) * 0.66));
-  const labelStep = Math.max(1, Math.ceil(days.length / 8));
-
-  return <article className="panel overview-chart-card">
-    <div className="overview-chart-heading"><div><h2>{title}</h2>{subtitle && <p>{subtitle}</p>}</div><div className="overview-legend">{series.map((item) => <span key={item.label}><i className={item.className} />{item.label}</span>)}</div></div>
-    <svg className="overview-chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title} trend chart`}>
-      <rect x="0" y="0" width={width} height={height} className="chart-background" />
-      {[0, 1, 2, 3, 4].map((row) => {
-        const value = (yMax * (4 - row)) / 4;
-        const y = margin.top + (plotHeight * row) / 4;
-        return <g key={row}><line x1={margin.left} x2={width - margin.right} y1={y} y2={y} className="chart-grid" /><text x={margin.left - 9} y={y + 4} textAnchor="end" className="chart-axis-label">{value.toFixed(yMax < 10 ? 1 : 0)}{unit && row === 0 ? ` ${unit}` : ""}</text></g>;
-      })}
-      {threshold !== undefined && threshold <= yMax && <g><line x1={margin.left} x2={width - margin.right} y1={yFor(threshold)} y2={yFor(threshold)} className="chart-threshold" /><text x={width - margin.right} y={yFor(threshold) - 5} textAnchor="end" className="chart-threshold-label">{threshold}{unit}</text></g>}
-
-      {kind === "bar" && chartPoints.map((point, index) => {
-        const value = point.values[0] ?? 0;
-        const x = xFor(index) - barWidth / 2;
-        const y = yFor(value);
-        return <rect key={point.date} x={x} y={y} width={barWidth} height={Math.max(0, margin.top + plotHeight - y)} rx="2" className={series[0]?.className ?? "series-primary"}><title>{point.date}: {value.toFixed(2)} {unit}</title></rect>;
-      })}
-
-      {kind === "stacked" && chartPoints.map((point, index) => {
-        let cumulative = 0;
-        return <g key={point.date}>{point.values.map((value, seriesIndex) => {
-          const safe = Math.max(0, value);
-          const from = cumulative;
-          cumulative += safe;
-          const yTop = yFor(cumulative);
-          const yBottom = yFor(from);
-          return <rect key={seriesIndex} x={xFor(index) - barWidth / 2} y={yTop} width={barWidth} height={Math.max(0, yBottom - yTop)} className={series[seriesIndex]?.className ?? "series-primary"}><title>{point.date} · {series[seriesIndex]?.label}: {safe.toFixed(2)}/h</title></rect>;
-        })}</g>;
-      })}
-
-      {kind === "line" && series.map((definition, seriesIndex) => {
-        const points = chartPoints.map((point, index) => ({ x: xFor(index), y: yFor(point.values[seriesIndex] ?? 0), value: point.values[seriesIndex] ?? 0, date: point.date }));
-        return <g key={definition.label}>
-          <polyline points={points.map((point) => `${point.x},${point.y}`).join(" ")} className={`chart-line ${definition.className}`} />
-          {points.map((point) => <circle key={point.date} cx={point.x} cy={point.y} r={days.length <= 45 ? 3.5 : 2} className={`chart-point ${definition.className}`}><title>{point.date} · {definition.label}: {point.value.toFixed(2)} {unit}</title></circle>)}
-        </g>;
-      })}
-
-      {days.map((day, index) => index % labelStep === 0 || index === days.length - 1 ? <text key={day.date} x={xFor(index)} y={height - 13} textAnchor="middle" className="chart-axis-label">{chartDateLabel(day.date)}</text> : null)}
-    </svg>
-  </article>;
+  const chartData = days.map(day => Object.fromEntries([
+    ["date", day.date], ...series.map(definition => {
+      const value = definition.getValue(day);
+      return [definition.label, value !== undefined && Number.isFinite(value) ? value : null];
+    }),
+  ]));
+  const palette: Record<string, AvailableChartColorsKeys> = {
+    "series-usage": "blue", "series-ahi": "blue", "series-rdi": "cyan",
+    "series-oa": "violet", "series-ca": "cyan", "series-h": "blue", "series-ua": "gray", "series-rera": "amber",
+    "series-pressure-average": "cyan", "series-pressure-95": "blue", "series-leak-average": "emerald", "series-leak-95": "amber",
+  };
+  const categories = series.map(definition => definition.label);
+  const colors = series.map(definition => palette[definition.className] ?? "blue");
+  const maximum = Math.max(threshold ?? 0, ...days.map(day => kind === "stacked"
+    ? series.reduce((total, definition) => total + (definition.getValue(day) ?? 0), 0)
+    : Math.max(0, ...series.map(definition => definition.getValue(day) ?? 0))));
+  const shared = {
+    data: chartData, index: "date", categories, colors, className: "h-64 w-full",
+    valueFormatter: (value: number) => `${value.toFixed(1)}${unit ? ` ${unit}` : ""}`,
+    yAxisWidth: 72, maxValue: niceMax(maximum), minValue: 0, legendPosition: "left" as const,
+    referenceLine: threshold === undefined ? undefined : { value: threshold, label: `${threshold} ${unit}` },
+  };
+  return <Card className="overview-chart-card border-[var(--border)] bg-[var(--surface)] p-5 shadow-none dark:border-[var(--border)] dark:bg-[var(--surface)]">
+    <div className="mb-4"><h2 className="text-sm font-semibold">{title}</h2><p className="mt-1 text-xs text-[var(--muted)]">{subtitle}</p></div>
+    {days.length ? kind === "line" ? <LineChart {...shared} connectNulls={false} /> : <BarChart {...shared} type={kind === "stacked" ? "stacked" : "default"} /> : <div className="graph-empty">No values in this range</div>}
+  </Card>;
 }
 
-export function Overview({ machine, machineId, defaultEndDate }: OverviewProps) {
+export function Overview({ machine, machineId, defaultEndDate, toolbarTarget }: OverviewProps) {
   const machineFirst = machine.firstSessionTime !== undefined ? therapyDateFromTimestamp(machine.firstSessionTime) : addDays(defaultEndDate, -29);
   const machineLast = machine.lastSessionTime !== undefined ? therapyDateFromTimestamp(machine.lastSessionTime) : defaultEndDate;
   const [startDate, setStartDate] = useState(() => machineFirst > addDays(defaultEndDate, -29) ? machineFirst : addDays(defaultEndDate, -29));
@@ -210,19 +156,20 @@ export function Overview({ machine, machineId, defaultEndDate }: OverviewProps) 
   ];
 
   return <>
-    <TherapyDateRange firstDate={machineFirst} lastDate={machineLast} startDate={startDate} endDate={endDate} days={history} loading={historyLoading} onChange={(start, end) => { setStartDate(start); setEndDate(end); }} />
+    <TherapyDateRange toolbarTarget={toolbarTarget} firstDate={machineFirst} lastDate={machineLast} startDate={startDate} endDate={endDate} days={history} loading={historyLoading} onChange={(start, end) => { setStartDate(start); setEndDate(end); }} />
 
-    {error && <div className="error">{error}</div>}
+    {error && <div className="error" role="alert">{error}</div>}
     {historyError && <div className="error">Unable to load therapy history: {historyError}</div>}
-    {loading && <div className="loading">Loading overview data…</div>}
+    {loading && <CalculatingIndicator />}
 
+    {!loading && !error && <>
     <section className="metrics overview-metrics">
       <MetricCard label="Days used" value={`${stats.usedDays} / ${stats.totalDays}`} detail={stats.totalDays ? `${((stats.usedDays / stats.totalDays) * 100).toFixed(0)}% of selected days` : "No days selected"} />
       <MetricCard label="Average usage" value={formatHours(stats.averageUsage)} detail={`${stats.totalUsage.toFixed(1)} h total`} />
       <MetricCard label="AHI" value={stats.ahi.toFixed(2)} detail={`RDI ${stats.rdi.toFixed(2)}`} />
       <MetricCard label="≥ 4 hours" value={`${stats.compliantDays}`} detail={stats.usedDays ? `${((stats.compliantDays / stats.usedDays) * 100).toFixed(0)}% of used days` : "No used days"} />
       <MetricCard label="Avg pressure 95%" value={stats.pressure95 ? `${stats.pressure95.toFixed(1)} cmH₂O` : "—"} />
-      <MetricCard label="Avg leak 95%" value={stats.leak95 ? `${stats.leak95.toFixed(1)} L/min` : "—"} />
+      <MetricCard label="Avg leak 95%" value={days.some(day => day.usageHours > 0 && day.leak95 !== undefined) ? `${stats.leak95.toFixed(1)} L/min` : "—"} />
     </section>
 
     <section className="overview-tabs" aria-label="Overview metric shortcuts">
@@ -236,5 +183,6 @@ export function Overview({ machine, machineId, defaultEndDate }: OverviewProps) 
       <div id="overview-pressure"><TrendChart title="Pressure" subtitle="Nightly average and 95th-percentile therapy pressure" days={days} series={pressureSeries} unit="cmH₂O" /></div>
       <div id="overview-leak"><TrendChart title="Leak Rate" subtitle="Nightly average and 95th-percentile leak" days={days} series={leakSeries} unit="L/min" /></div>
     </section>}
+    </>}
   </>;
 }
