@@ -321,6 +321,12 @@ ipcMain.handle("overview:get", (_event: unknown, machineId: number, startDate: s
   finally { queries.close(); }
 });
 
+ipcMain.handle("therapyHistory:get", (_event: unknown, machineId: number, startDate: string, endDate: string) => {
+  const queries = new OscarQueries(requireDatabase());
+  try { return queries.getTherapyHistory(machineId, startDate, endDate); }
+  finally { queries.close(); }
+});
+
 ipcMain.handle("chart:get", (_event: unknown, machineId: number, date: string, channelIds: number[], options?: ChartQueryOptions) => {
   const queries = new OscarQueries(requireDatabase());
   try { return queries.getChartSeries(machineId, date, channelIds, options); }

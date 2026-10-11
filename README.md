@@ -220,6 +220,7 @@ Implemented:
   - database open defaults to the latest stored therapy night instead of the computer's current date
   - complete Statistics screen with 7/30/90-day/full-history range selection
   - Overview and Statistics share the therapy-history date filter, including availability marks, draggable handles, keyboard controls, date fields, and presets; All restores both history endpoints
+  - timeline marks load through a lightweight session/usage query without waveform or event reads; detailed Overview metrics load only for the selected range, and both pages wait 150 ms after range changes before requesting metrics
   - range-level used days, ≥4-hour adherence, total/average/median usage, AHI and RDI
   - aggregate OA/CA/H/UA/RERA counts and event indices per therapy hour
   - pressure/leak average, median, 95th-percentile and maximum statistics across the selected range
@@ -361,6 +362,36 @@ For renderer development, run Vite from `apps/desktop` and set `OSCAR_RENDERER_U
 ## First run, profiles, and device time
 
 On first launch, the desktop app asks for a profile name and an IANA timezone such as `America/Toronto`. Confirming setup creates the default application database under Electron's user-data directory. You can instead choose **Open existing database** to continue from an earlier OSCAR Next database.
+
+### Access desktop profiles and data from a web browser (Windows)
+
+The Windows desktop app's default database is:
+
+```text
+%APPDATA%\oscar-next\oscar-next.sqlite
+```
+
+This normally expands to `C:\Users\<username>\AppData\Roaming\oscar-next\oscar-next.sqlite`.
+If you opened a different database in the desktop app, use that file's path instead.
+
+Desktop and web mode use different databases by default. Running
+`npm run headless -- --allow-imports` uses `.\data\oscar-next.sqlite` relative to
+the project folder. Profiles and therapy data live in the database, so a profile
+created in the desktop app will appear in web mode only when both open the same
+database.
+
+To use the default desktop database, stop any running headless server with
+**Ctrl+C**, then run this from the project folder in PowerShell:
+
+```powershell
+npm run headless -- --allow-imports --database "$env:APPDATA\oscar-next\oscar-next.sqlite"
+```
+
+Open or refresh [http://localhost:3210/](http://localhost:3210/) in your browser.
+Keep the terminal running; **Ctrl+C** stops the server. `--allow-imports` enables
+server-local CPAP imports and demo data. The server binds to localhost by default;
+access from another device requires LAN binding and a bearer token as described
+in [TASK-B-HEADLESS.md](TASK-B-HEADLESS.md).
 
 Use **Profiles & time** to:
 

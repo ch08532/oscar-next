@@ -8,7 +8,7 @@ import { importSourceToDatabase, previewImportSource } from "../importers/import
 import { createDemoResMedCard } from "../demo/demo-card.js";
 import { statisticsToCsv, statisticsToHtml } from "../reports/statistics-report.js";
 import { OscarDatabase } from "../storage/database.js";
-import { OscarQueries, type ChartQueryOptions } from "../storage/queries.js";
+import { OscarQueries, therapyDayRange, type ChartQueryOptions } from "../storage/queries.js";
 import { createDiagnosticBundle } from "../desktop/diagnostics.js";
 import { createSystemVolumeProvider, RemovableMediaWatcher, type DetectedMedia } from "../desktop/removable-media.js";
 
@@ -388,6 +388,19 @@ export async function startOscarApiServer(options: OscarApiServerOptions): Promi
         const body = await readJsonBody(request);
         withDatabase(options.databasePath, (db) => db.setSessionEnabled(machineId, sessionId, requireBoolean(body, "enabled")));
         return sendNoContent(response);
+      }
+      match = /^\/api\/v1\/machines\/(\d+)\/therapy-history$/.exec(pathname);
+      if (match && method === "GET") {
+        const machineId = requireInteger(match[1], "machineId");
+        const startDate = url.searchParams.get("startDate") ?? "";
+        const endDate = url.searchParams.get("endDate") ?? "";
+        if (!startDate || !endDate) throw new HttpError(400, "startDate and endDate are required");
+        try {
+          if (therapyDayRange(endDate).startMs < therapyDayRange(startDate).startMs) throw new RangeError("endDate cannot be before startDate");
+        } catch (error) {
+          throw new HttpError(400, error instanceof Error ? error.message : String(error));
+        }
+        return sendJson(response, 200, withQueries(options.databasePath, (queries) => queries.getTherapyHistory(machineId, startDate, endDate)));
       }
       match = /^\/api\/v1\/machines\/(\d+)\/overview$/.exec(pathname);
       if (match && method === "GET") {

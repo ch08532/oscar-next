@@ -37,6 +37,7 @@ test("OpenAPI contract exposes core OSCAR Next resources", () => {
   assert.ok(openApiDocument.paths["/api/v1/state"]);
   assert.ok(openApiDocument.paths["/api/v1/active-profile"]);
   assert.ok(openApiDocument.paths["/api/v1/diagnostics"]);
+  assert.ok(openApiDocument.paths["/api/v1/machines/{machineId}/therapy-history"]);
 });
 
 test("REST API serves Swagger/OpenAPI and reuses Daily/chart/database logic", async () => {
@@ -71,6 +72,16 @@ test("REST API serves Swagger/OpenAPI and reuses Daily/chart/database logic", as
     assert.equal(dailyBody.usageHours, 2);
     assert.equal(dailyBody.eventCounts.obstructive, 1);
 
+    const history = await fetch(`${api.baseUrl}/api/v1/machines/2100/therapy-history?startDate=2026-10-09&endDate=2026-10-10`);
+    assert.equal(history.status, 200);
+    assert.deepEqual(await history.json(), [
+      { date: "2026-10-09", sessionCount: 1, usageHours: 2 },
+      { date: "2026-10-10", sessionCount: 0, usageHours: 0 },
+    ]);
+    for (const query of ["", "?startDate=2026-10-09", "?startDate=bad&endDate=2026-10-10", "?startDate=2026-02-29&endDate=2026-03-01", "?startDate=2026-10-10&endDate=2026-10-09"]) {
+      assert.equal((await fetch(`${api.baseUrl}/api/v1/machines/2100/therapy-history${query}`)).status, 400);
+    }
+
     const chart = await fetch(`${api.baseUrl}/api/v1/machines/2100/charts/2026-10-09?channels=${CpapChannel.Pressure}&maxPointsPerSeries=5000`);
     const chartBody = await chart.json() as { series: Array<{ values: number[]; timesMs: number[] }> };
     assert.deepEqual(chartBody.series[0]?.values, [8, 9, 10]);
@@ -84,6 +95,8 @@ test("REST API serves Swagger/OpenAPI and reuses Daily/chart/database logic", as
     assert.equal(disable.status, 204);
     const dailyAfter = await fetch(`${api.baseUrl}/api/v1/machines/2100/daily/2026-10-09`);
     assert.equal((await dailyAfter.json() as { usageHours: number }).usageHours, 0);
+    const historyAfter = await fetch(`${api.baseUrl}/api/v1/machines/2100/therapy-history?startDate=2026-10-09&endDate=2026-10-09`);
+    assert.deepEqual(await historyAfter.json(), [{ date: "2026-10-09", sessionCount: 0, usageHours: 0 }]);
 
     const blockedImport = await fetch(`${api.baseUrl}/api/v1/imports/preview`, {
       method: "POST",
@@ -106,6 +119,9 @@ test("API bearer token is enforced when configured", async () => {
     assert.equal((await fetch(`${api.baseUrl}/api/v1/profiles`)).status, 401);
     assert.equal((await fetch(`${api.baseUrl}/api/v1/profiles`, { headers: { authorization: "Bearer secret-token" } })).status, 200);
     assert.equal((await fetch(`${api.baseUrl}/api/v1/health`)).status, 200);
+    const historyUrl = `${api.baseUrl}/api/v1/machines/2100/therapy-history?startDate=2026-10-09&endDate=2026-10-09`;
+    assert.equal((await fetch(historyUrl)).status, 401);
+    assert.equal((await fetch(historyUrl, { headers: { authorization: "Bearer secret-token" } })).status, 200);
   } finally {
     await api.close();
     await rm(dir, { recursive: true, force: true });

@@ -1202,7 +1202,7 @@
               }
             }
           },
-          "403": {
+          "400": {
             "description": "Request failed",
             "content": {
               "application/json": {
@@ -1212,7 +1212,7 @@
               }
             }
           },
-          "400": {
+          "403": {
             "description": "Request failed",
             "content": {
               "application/json": {
@@ -1274,7 +1274,7 @@
               }
             }
           },
-          "403": {
+          "400": {
             "description": "Request failed",
             "content": {
               "application/json": {
@@ -1284,7 +1284,7 @@
               }
             }
           },
-          "400": {
+          "403": {
             "description": "Request failed",
             "content": {
               "application/json": {
@@ -1654,6 +1654,82 @@
             }
           }
         }
+      }
+    },
+    "/api/v1/machines/{machineId}/therapy-history": {
+      "get": {
+        "tags": [
+          "Therapy"
+        ],
+        "summary": "Get lightweight therapy history availability",
+        "parameters": [
+          {
+            "name": "machineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TherapyHistoryDay"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Bearer authentication required when configured"
+          },
+          "500": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "description": "Contiguous therapy dates with included-session counts and mask-on usage hours. Includes summary-only sessions and zero-use days; excludes disabled sessions. Reads session metadata and slices without waveform, event or settings payloads."
       }
     }
   },
@@ -2507,6 +2583,28 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "TherapyHistoryDay": {
+        "type": "object",
+        "required": [
+          "date",
+          "sessionCount",
+          "usageHours"
+        ],
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "sessionCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "usageHours": {
+            "type": "number",
+            "minimum": 0
           }
         }
       }

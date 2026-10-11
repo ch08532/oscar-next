@@ -1,7 +1,7 @@
 import type {
   AppInfo, ChartQueryOptions, ChartQueryResult, DailySummary, DetectedMedia, GraphBookmark, GraphPreference,
   ImportPreview, ImportProgress, ImportStoreResult, MachineTimeSettings, OscarApi, OverviewDaySummary,
-  ProfileSummary, SetupState, StatisticsSummary, StoredMachineSummary,
+  ProfileSummary, SetupState, StatisticsSummary, StoredMachineSummary, TherapyHistoryDay,
 } from "./types";
 
 interface ApiHealth {
@@ -179,6 +179,9 @@ export function createRestOscarApi(token?: string): OscarApi {
     },
     getOverview(machineId: number, startDate: string, endDate: string) {
       return json<OverviewDaySummary[]>(`/api/v1/machines/${machineId}/overview?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`);
+    },
+    getTherapyHistory(machineId: number, startDate: string, endDate: string) {
+      return json<TherapyHistoryDay[]>(`/api/v1/machines/${machineId}/therapy-history?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`);
     },
     async getChartSeries(machineId: number, date: string, channelIds: number[], options: ChartQueryOptions = {}) {
       const params = new URLSearchParams({ channels: channelIds.join(",") });

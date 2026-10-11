@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import type { OverviewDaySummary, StoredMachineSummary } from "./types";
+import type { OverviewDaySummary, StoredMachineSummary, TherapyHistoryDay } from "./types";
 import { TherapyDateRange } from "./TherapyDateRange";
-import { filterOverviewDays, summarizeOverviewDays } from "./overview-summary";
+import { summarizeOverviewDays } from "./overview-summary";
 
 type OverviewMetric = "usage" | "ahi" | "events" | "pressure" | "leak";
 
@@ -139,7 +139,10 @@ export function Overview({ machine, machineId, defaultEndDate }: OverviewProps) 
   const machineLast = machine.lastSessionTime !== undefined ? therapyDateFromTimestamp(machine.lastSessionTime) : defaultEndDate;
   const [startDate, setStartDate] = useState(() => machineFirst > addDays(defaultEndDate, -29) ? machineFirst : addDays(defaultEndDate, -29));
   const [endDate, setEndDate] = useState(() => machineLast < defaultEndDate ? machineLast : defaultEndDate);
-  const [history, setHistory] = useState<OverviewDaySummary[]>([]);
+  const [history, setHistory] = useState<TherapyHistoryDay[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState<string>();
+  const [days, setDays] = useState<OverviewDaySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
   const [activeMetric, setActiveMetric] = useState<OverviewMetric>("usage");
@@ -154,17 +157,35 @@ export function Overview({ machine, machineId, defaultEndDate }: OverviewProps) 
   useEffect(() => {
     let cancelled = false;
     setHistory([]);
-    setLoading(true);
-    setError(undefined);
-    window.oscar.getOverview(machineId, machineFirst, machineLast).then((result) => {
+    setHistoryLoading(true);
+    setHistoryError(undefined);
+    window.oscar.getTherapyHistory(machineId, machineFirst, machineLast).then((result) => {
       if (!cancelled) setHistory(result);
     }).catch((cause) => {
-      if (!cancelled) setError(cause instanceof Error ? cause.message : String(cause));
-    }).finally(() => { if (!cancelled) setLoading(false); });
+      if (!cancelled) setHistoryError(cause instanceof Error ? cause.message : String(cause));
+    }).finally(() => { if (!cancelled) setHistoryLoading(false); });
     return () => { cancelled = true; };
   }, [machineId, machineFirst, machineLast]);
 
-  const days = useMemo(() => filterOverviewDays(history, startDate, endDate), [history, startDate, endDate]);
+  useEffect(() => {
+    let cancelled = false;
+    setDays([]);
+    setLoading(true);
+    setError(undefined);
+    if (!startDate || !endDate || endDate < startDate) {
+      setLoading(false);
+      return;
+    }
+    // Avoid expensive metric requests for intermediate positions during a drag.
+    const timer = window.setTimeout(() => {
+      window.oscar.getOverview(machineId, startDate, endDate).then((result) => {
+        if (!cancelled) setDays(result);
+      }).catch((cause) => {
+        if (!cancelled) setError(cause instanceof Error ? cause.message : String(cause));
+      }).finally(() => { if (!cancelled) setLoading(false); });
+    }, 150);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [machineId, startDate, endDate]);
   const stats = useMemo(() => summarizeOverviewDays(days), [days]);
 
   const usageSeries: SeriesDefinition[] = [{ label: "Usage", getValue: (day) => day.usageHours, className: "series-usage" }];
@@ -189,9 +210,10 @@ export function Overview({ machine, machineId, defaultEndDate }: OverviewProps) 
   ];
 
   return <>
-    <TherapyDateRange firstDate={machineFirst} lastDate={machineLast} startDate={startDate} endDate={endDate} days={history} loading={loading} onChange={(start, end) => { setStartDate(start); setEndDate(end); }} />
+    <TherapyDateRange firstDate={machineFirst} lastDate={machineLast} startDate={startDate} endDate={endDate} days={history} loading={historyLoading} onChange={(start, end) => { setStartDate(start); setEndDate(end); }} />
 
     {error && <div className="error">{error}</div>}
+    {historyError && <div className="error">Unable to load therapy history: {historyError}</div>}
     {loading && <div className="loading">Loading overview data…</div>}
 
     <section className="metrics overview-metrics">

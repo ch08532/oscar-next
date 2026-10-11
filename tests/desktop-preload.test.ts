@@ -17,6 +17,7 @@ test("compiled preload loads with sandbox CommonJS and exposes the scoped IPC AP
   }, {});
   assert.equal(await bridge.getAppInfo(), "ok");
   assert.equal(await bridge.getDaily(123, "2026-10-09"), "ok");
-  assert.deepEqual(calls, [["app:getInfo"], ["daily:get", 123, "2026-10-09"]]);
+  assert.equal(await bridge.getTherapyHistory(123, "2026-10-01", "2026-10-09"), "ok");
+  assert.deepEqual(calls, [["app:getInfo"], ["daily:get", 123, "2026-10-09"], ["therapyHistory:get", 123, "2026-10-01", "2026-10-09"]]);
   assert.equal(bridge.require, undefined);
 });

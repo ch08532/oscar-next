@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { OverviewDaySummary, StatisticsSummary, StoredMachineSummary } from "./types";
+import type { TherapyHistoryDay, StatisticsSummary, StoredMachineSummary } from "./types";
 import { TherapyDateRange } from "./TherapyDateRange";
 
 interface StatisticsProps {
@@ -50,7 +50,7 @@ export function Statistics({ machine, machineId, defaultEndDate }: StatisticsPro
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
   const [exportMessage, setExportMessage] = useState<string>();
-  const [history, setHistory] = useState<OverviewDaySummary[]>([]);
+  const [history, setHistory] = useState<TherapyHistoryDay[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState<string>();
 
@@ -65,7 +65,7 @@ export function Statistics({ machine, machineId, defaultEndDate }: StatisticsPro
     setHistory([]);
     setHistoryLoading(true);
     setHistoryError(undefined);
-    window.oscar.getOverview(machineId, machineFirst, machineLast)
+    window.oscar.getTherapyHistory(machineId, machineFirst, machineLast)
       .then((value) => { if (!cancelled) setHistory(value); })
       .catch((cause) => { if (!cancelled) setHistoryError(cause instanceof Error ? cause.message : String(cause)); })
       .finally(() => { if (!cancelled) setHistoryLoading(false); });
@@ -74,12 +74,19 @@ export function Statistics({ machine, machineId, defaultEndDate }: StatisticsPro
 
   useEffect(() => {
     let cancelled = false;
+    setStats(undefined);
     setLoading(true); setError(undefined);
-    window.oscar.getStatistics(machineId, startDate, endDate)
-      .then((value) => { if (!cancelled) setStats(value); })
-      .catch((cause) => { if (!cancelled) setError(cause instanceof Error ? cause.message : String(cause)); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+    if (!startDate || !endDate || endDate < startDate) {
+      setLoading(false);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      window.oscar.getStatistics(machineId, startDate, endDate)
+        .then((value) => { if (!cancelled) setStats(value); })
+        .catch((cause) => { if (!cancelled) setError(cause instanceof Error ? cause.message : String(cause)); })
+        .finally(() => { if (!cancelled) setLoading(false); });
+    }, 150);
+    return () => { cancelled = true; window.clearTimeout(timer); };
   }, [machineId, startDate, endDate]);
 
   const settingIds = useMemo(() => {

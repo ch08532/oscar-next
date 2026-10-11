@@ -353,3 +353,45 @@ Electron visual validation and packaging were not repeated for this adjustment.
   were not manually exercised in this follow-up. Existing range unit tests cover
   the reused date arithmetic, keyboard limits, and All behavior; no new unit test
   was added solely to assert component reuse.
+
+### Follow-up — faster therapy-history timeline (2026-10-10)
+
+- Root cause: both pages requested full Overview metrics across the machine's
+  entire history to draw timeline marks. `getOverview` calls `getDaily` for each
+  date, including event counting and pressure/leak waveform statistics.
+- Added `getTherapyHistory` to the shared query service, scoped Electron bridge,
+  and REST adapter. `GET /api/v1/machines/{machineId}/therapy-history` returns
+  only date, included-session count, and usage hours. It performs two metadata
+  queries across the span, then computes day usage from session bounds/slices.
+  It does not read waveform/event/settings payloads or change the schema.
+- Reused the existing mask-on usage calculation. Regression tests preserve
+  summary-only and disabled-session handling, mask-off gaps and duration
+  fallback, sessions spanning noon, exact noon end-boundary counts, custom
+  rollover hours, inclusive ranges, leap days, and machine isolation.
+- Both timelines use lightweight history independently of metric loading.
+  Overview requests detailed metrics only for the selected range. Both pages
+  debounce metric requests by 150 ms and ignore stale completions. Clearing
+  date inputs skips the metric request until a valid ordered range is present.
+  Selecting All still calculates detailed metrics for the entire selected span
+  and can remain expensive on large histories.
+- Baseline `npm run verify`: PASS, 120 tests and synthetic demo smoke.
+- Final `npm run verify`: PASS, 126 tests and synthetic demo smoke. REST
+  integration checks cover response shape, missing/invalid/reversed dates,
+  immediate disabled-session updates, and bearer authentication. The sandboxed
+  preload test covers the new scoped IPC method. A storage regression confirms
+  history works with waveform/event/settings tables removed from an isolated
+  synthetic database, while full Overview fails as expected.
+- `npm --prefix apps/desktop run build`,
+  `npm --prefix apps/desktop run build:headless`, renderer
+  `tsc.cmd --noEmit -p apps/desktop/tsconfig.json`, and `git diff --check`: PASS.
+- Synthetic benchmark: `node .validation/benchmark-therapy-history.mjs`, 90
+  eight-hour nights with pressure/leak waveforms, three repetitions on this
+  machine. Median full Overview query: **380.97 ms**; lightweight history:
+  **0.55 ms**. JSON payload: **29,791 bytes** versus **4,861 bytes**. Session
+  count and usage parity: PASS. The temporary synthetic database was removed;
+  the benchmark helper is ignored under `.validation/`.
+- Measurements cover local queries, not browser rendering or network latency.
+  No real therapy database was opened or modified during this follow-up.
+  Manual browser/Electron dragging and performance on real long histories
+  remain unverified. Restart the headless process and reload the browser to
+  use the rebuilt server and UI.

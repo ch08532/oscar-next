@@ -46,6 +46,7 @@ Then the following endpoints become available:
 | Machines | list by profile, read/update timezone handling |
 | Daily | therapy-night summary and session list |
 | Overview | date-range trend data |
+| Therapy history | lightweight timeline availability and usage, without waveform/event reads |
 | Statistics | date-range aggregate statistics |
 | Charts | waveform/event series with windowing and decimation |
 | Sessions | enable/disable a session |
@@ -66,6 +67,19 @@ GET /api/v1/machines/123456/charts/2026-10-09?channels=1,2,3&maxPointsPerSeries=
 ```
 
 High-rate typed arrays are serialized as normal JSON arrays. Waveforms may be min/max decimated to the requested point budget; event series are never decimated.
+
+### Example: timeline availability
+
+```text
+GET /api/v1/machines/123456/therapy-history?startDate=2026-01-01&endDate=2026-10-09
+```
+
+Returns one `{ date, sessionCount, usageHours }` object per therapy day, including
+gaps. Counts include enabled summary-only sessions. Usage uses mask-on slices
+with the same session-duration fallback and noon rollover as Daily/Overview.
+This endpoint reads only session metadata and slices; it does not calculate
+AHI or pressure/leak statistics. It uses the same bearer authentication as other
+therapy endpoints. Missing, invalid, or reversed dates return HTTP 400.
 
 ## Swagger authorization
 

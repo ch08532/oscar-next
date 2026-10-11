@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld("oscar", {
   createGraphBookmark: (machineId: number, date: string, name: string, startMs: number, endMs: number) => ipcRenderer.invoke("graphs:createBookmark", machineId, date, name, startMs, endMs),
   deleteGraphBookmark: (machineId: number, bookmarkId: number) => ipcRenderer.invoke("graphs:deleteBookmark", machineId, bookmarkId),
   getOverview: (machineId: number, startDate: string, endDate: string) => ipcRenderer.invoke("overview:get", machineId, startDate, endDate),
+  getTherapyHistory: (machineId: number, startDate: string, endDate: string) => ipcRenderer.invoke("therapyHistory:get", machineId, startDate, endDate),
   getChartSeries: (machineId: number, date: string, channelIds: number[], options?: { startMs?: number; endMs?: number; maxPointsPerSeries?: number }) => ipcRenderer.invoke("chart:get", machineId, date, channelIds, options),
   getStatistics: (machineId: number, startDate: string, endDate: string) => ipcRenderer.invoke("statistics:get", machineId, startDate, endDate),
   exportStatisticsCsv: (machineId: number, startDate: string, endDate: string): Promise<string | undefined> => ipcRenderer.invoke("statistics:exportCsv", machineId, startDate, endDate),

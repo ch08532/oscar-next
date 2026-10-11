@@ -1,6 +1,6 @@
 import { useRef, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { clampRangeOffset, dateAtOffset, dayOffset, keyboardRangeOffset, presetDateRange, rangeHandleOffset, type RangeEdge } from "./overview-date-range";
-import type { OverviewDaySummary } from "./types";
+import type { TherapyHistoryDay } from "./types";
 
 type Edge = RangeEdge;
 
@@ -9,7 +9,7 @@ export function TherapyDateRange({ firstDate, lastDate, startDate, endDate, days
   lastDate: string;
   startDate: string;
   endDate: string;
-  days: readonly OverviewDaySummary[];
+  days: readonly TherapyHistoryDay[];
   loading: boolean;
   onChange(start: string, end: string): void;
   actions?: ReactNode;

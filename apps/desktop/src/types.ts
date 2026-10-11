@@ -57,6 +57,12 @@ export interface DailySummary {
   sessions: Array<{ id: number; firstMs: number; lastMs: number; usageHours: number; enabled?: boolean; summaryOnly: boolean; settings?: Record<number, unknown> }>;
 }
 
+export interface TherapyHistoryDay {
+  date: string;
+  sessionCount: number;
+  usageHours: number;
+}
+
 export interface OverviewDaySummary {
   date: string;
   sessionCount: number;
@@ -226,6 +232,7 @@ export interface OscarApi {
   createGraphBookmark(machineId: number, date: string, name: string, startMs: number, endMs: number): Promise<GraphBookmark>;
   deleteGraphBookmark(machineId: number, bookmarkId: number): Promise<void>;
   getOverview(machineId: number, startDate: string, endDate: string): Promise<OverviewDaySummary[]>;
+  getTherapyHistory(machineId: number, startDate: string, endDate: string): Promise<TherapyHistoryDay[]>;
   getChartSeries(machineId: number, date: string, channelIds: number[], options?: ChartQueryOptions): Promise<ChartQueryResult>;
   getStatistics(machineId: number, startDate: string, endDate: string): Promise<StatisticsSummary>;
   exportStatisticsCsv(machineId: number, startDate: string, endDate: string): Promise<string | undefined>;

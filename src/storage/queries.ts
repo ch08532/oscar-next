@@ -142,6 +142,12 @@ export interface StatisticsSummary {
   days: OverviewDaySummary[];
 }
 
+export interface TherapyHistoryDay {
+  date: string;
+  sessionCount: number;
+  usageHours: number;
+}
+
 export interface OverviewDaySummary {
   date: string;
   sessionCount: number;
@@ -260,6 +266,12 @@ function overlapMs(start: number, end: number, rangeStart: number, rangeEnd: num
   return Math.max(0, Math.min(end, rangeEnd) - Math.max(start, rangeStart));
 }
 
+function usageMsFromSlices(session: SessionRow, slices: readonly SliceRow[], rangeStart: number, rangeEnd: number): number {
+  const maskOn = slices.filter((slice) => slice.status === 2);
+  if (maskOn.length === 0) return overlapMs(session.first_ms, session.last_ms, rangeStart, rangeEnd);
+  return maskOn.reduce((total, slice) => total + overlapMs(slice.start_ms, slice.end_ms, rangeStart, rangeEnd), 0);
+}
+
 export class OscarQueries {
   readonly path: string;
   readonly rolloverHour: number;
@@ -344,6 +356,45 @@ export class OscarQueries {
       ...(leak ? { leak } : {}),
       availableChannels,
     };
+  }
+
+  getTherapyHistory(machineId: MachineId, startDate: string, endDate: string): TherapyHistoryDay[] {
+    const start = therapyDayRange(startDate, this.rolloverHour).startMs;
+    const end = therapyDayRange(endDate, this.rolloverHour).startMs;
+    if (end < start) throw new RangeError("endDate cannot be before startDate");
+    const result: TherapyHistoryDay[] = [];
+    for (let ms = start; ms <= end; ms += DAY_MS) {
+      result.push({ date: therapyDateForTimestamp(ms, this.rolloverHour), sessionCount: 0, usageHours: 0 });
+    }
+    // Two metadata queries for the whole span; never read waveform/event BLOBs.
+    const sessions = this.#sessionRows(machineId, start, end + DAY_MS).filter((session) => session.enabled !== 0);
+    const slices = this.#db.prepare(`
+      SELECT sl.session_row_id, sl.start_ms, sl.end_ms, sl.status
+      FROM session_slices sl JOIN sessions s ON s.row_id = sl.session_row_id
+      WHERE s.machine_id = ? AND s.enabled != 0 AND s.first_ms < ? AND s.last_ms >= ?
+      ORDER BY sl.session_row_id, sl.slice_index
+    `).all(machineId, end + DAY_MS, start) as Array<SliceRow & { session_row_id: number }>;
+    const bySession = new Map<number, SliceRow[]>();
+    for (const slice of slices) {
+      const group = bySession.get(slice.session_row_id) ?? [];
+      group.push(slice);
+      bySession.set(slice.session_row_id, group);
+    }
+    const usageByDay = result.map(() => 0);
+    for (const session of sessions) {
+      const sessionSlices = bySession.get(session.row_id) ?? [];
+      const firstIndex = Math.max(0, Math.floor((session.first_ms - start) / DAY_MS));
+      // Match #sessionRows' inclusive last_ms bound, including zero-use boundary days.
+      const lastIndex = Math.min(result.length - 1, Math.floor((session.last_ms - start) / DAY_MS));
+      for (let index = firstIndex; index <= lastIndex; index += 1) {
+        const day = result[index]!;
+        const dayStart = start + index * DAY_MS;
+        day.sessionCount += 1;
+        usageByDay[index] = usageByDay[index]! + usageMsFromSlices(session, sessionSlices, dayStart, dayStart + DAY_MS);
+      }
+    }
+    for (let index = 0; index < result.length; index += 1) result[index]!.usageHours = usageByDay[index]! / HOUR_MS;
+    return result;
   }
 
   getOverview(machineId: MachineId, startDate: string, endDate: string): OverviewDaySummary[] {
@@ -611,9 +662,7 @@ export class OscarQueries {
       WHERE session_row_id = ?
       ORDER BY slice_index
     `).all(session.row_id) as SliceRow[];
-    const maskOn = slices.filter((slice) => slice.status === 2);
-    if (maskOn.length === 0) return overlapMs(session.first_ms, session.last_ms, rangeStart, rangeEnd);
-    return maskOn.reduce((total, slice) => total + overlapMs(slice.start_ms, slice.end_ms, rangeStart, rangeEnd), 0);
+    return usageMsFromSlices(session, slices, rangeStart, rangeEnd);
   }
 
   #eventListRows(sessionRowId: number): EventListRow[] {
