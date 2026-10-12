@@ -381,6 +381,27 @@ export async function startOscarApiServer(options: OscarApiServerOptions): Promi
         const machineId = requireInteger(match[1], "machineId");
         return sendJson(response, 200, withQueries(options.databasePath, (queries) => queries.getDaily(machineId, match![2]!)));
       }
+      match = /^\/api\/v1\/machines\/(\d+)\/daily\/(\d{4}-\d{2}-\d{2})\/channel-analysis$/.exec(pathname);
+      if (match && method === "GET") {
+        const machineId = requireInteger(match[1], "machineId");
+        try { therapyDayRange(match[2]!); } catch { throw new HttpError(400, "Invalid therapy date"); }
+        return sendJson(response, 200, withQueries(options.databasePath, queries => queries.getDailyChannelAnalysis(machineId, match![2]!)));
+      }
+      match = /^\/api\/v1\/machines\/(\d+)\/analysis-preferences$/.exec(pathname);
+      if (match && method === "GET") return sendJson(response, 200, withDatabase(options.databasePath, db => db.getTherapyAnalysisPreferences(requireInteger(match![1], "machineId"))));
+      if (match && method === "PUT") {
+        const machineId = requireInteger(match[1], "machineId"), body = await readJsonBody(request);
+        const preferences = { leakThreshold: requireNumber(body, "leakThreshold"), showLeakThreshold: requireBoolean(body, "showLeakThreshold") };
+        if (preferences.leakThreshold < 0 || preferences.leakThreshold > 1000) throw new HttpError(400, "leakThreshold must be between 0 and 1000 L/min");
+        return sendJson(response, 200, withDatabase(options.databasePath, db => db.setTherapyAnalysisPreferences(machineId, preferences)));
+      }
+      match = /^\/api\/v1\/machines\/(\d+)\/graphs\/visibility$/.exec(pathname);
+      if (match && method === "PUT") {
+        const machineId = requireInteger(match[1], "machineId"), body = await readJsonBody(request);
+        if (!body.visibility || typeof body.visibility !== "object" || Array.isArray(body.visibility) || Object.entries(body.visibility).some(([key, value]) => !key.trim() || typeof value !== "boolean")) throw new HttpError(400, "visibility must map graph keys to booleans");
+        withDatabase(options.databasePath, db => db.setGraphVisibility(machineId, body.visibility as Record<string, boolean>));
+        return sendNoContent(response);
+      }
       match = /^\/api\/v1\/machines\/(\d+)\/sessions\/(\d+)$/.exec(pathname);
       if (match && method === "PATCH") {
         const machineId = requireInteger(match[1], "machineId");

@@ -43,16 +43,15 @@ test("schema v5 upgrades index metadata without changing therapy or user state",
     sql = new DatabaseSync(path);
     // v6 changes only index metadata, so restoring this index and version
     // recreates the complete v5 schema, including its original constraints.
-    sql.exec("CREATE INDEX idx_event_lists_session_channel ON event_lists(session_row_id, channel_id); UPDATE schema_version SET version=5;");
+    sql.exec("ALTER TABLE graph_preferences DROP COLUMN visible; CREATE INDEX idx_event_lists_session_channel ON event_lists(session_row_id, channel_id); UPDATE schema_version SET version=5;");
     const tables = ["profiles", "app_settings", "machines", "machine_properties", "sessions", "session_settings", "session_slices", "event_lists", "waveform_chunks", "graph_preferences", "graph_bookmarks"];
-    const snapshot = () => tables.map(table => sql!.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all());
+    const snapshot = () => tables.map(table => sql!.prepare(`SELECT ${table === "graph_preferences" ? "machine_id, graph_key, pinned, sort_order, height" : "*"} FROM ${table} ORDER BY rowid`).all());
     const before = snapshot();
     sql.close(); sql = undefined;
 
     for (let reopen = 0; reopen < 2; reopen++) {
       db = new OscarDatabase(path);
-      assert.equal(SCHEMA_VERSION, 6);
-      assert.equal(db.schemaVersion, 6);
+      assert.equal(db.schemaVersion, SCHEMA_VERSION);
       assert.equal(db.loadMachine(1)?.session(1)?.enabled, false);
       assert.equal(db.loadMachine(2)?.session(1)?.enabled, true);
       assert.deepEqual([...db.loadMachine(1)!.session(1)!.eventLists.get(C.FlowRate)![0]!.rawData()], new Array(3000).fill(12));

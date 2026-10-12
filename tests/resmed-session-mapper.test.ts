@@ -5,6 +5,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CpapChannel } from "../src/core/cpap-channels.js";
 import { ResMedLoader } from "../src/importers/resmed/resmed-loader.js";
+import { OscarDatabase } from "../src/storage/database.js";
+import { OscarQueries } from "../src/storage/queries.js";
+import { availableDailyGraphs } from "../apps/desktop/src/daily-graphs.js";
 import { makeAnnotationEdf, makeOrdinaryEdf } from "./helpers/edf-fixture.js";
 
 async function makeSyntheticCard(): Promise<string> {
@@ -27,6 +30,7 @@ async function makeSyntheticCard(): Promise<string> {
     { label: "Leak.2s", dimension: "L/s", physicalMin: 0, physicalMax: 10, digitalMin: 0, digitalMax: 100, samples: [1, 2], samplesPerRecord: 2 },
     { label: "RespRate.2s", dimension: "bpm", samples: [14, 15], samplesPerRecord: 2 },
     { label: "TidVol.2s", dimension: "L", physicalMin: 0, physicalMax: 1, digitalMin: 0, digitalMax: 1000, samples: [500, 600], samplesPerRecord: 2 },
+    ...["FlowLim.2s", "Snore.2s", "MinVent.2s", "B5ITime.2s", "B5ETime.2s", "IERatio.2s", "TgtVent.2s", "MaskPress.2s", "IPAP", "EPAP"].map(label => ({ label, samples: [1, 2], samplesPerRecord: 2 })),
   ]));
 
   await writeFile(join(day, "20261009_221530_SA2.edf"), makeOrdinaryEdf(start, 2, [
@@ -41,6 +45,28 @@ async function makeSyntheticCard(): Promise<string> {
   await writeFile(join(day, "20261009_221529_CSL.edf"), makeAnnotationEdf(start, 2, cslTal));
   return root;
 }
+
+test("all imported respiratory channels are available to Daily graphs and nightly statistics", async () => {
+  const root = await makeSyntheticCard(), path = join(root, "synthetic.sqlite");
+  try {
+    const imported = await new ResMedLoader().open(root);
+    const db = new OscarDatabase(path); try { db.saveMachine(imported.machine); } finally { db.close(); }
+    const queries = new OscarQueries(path);
+    try {
+      const daily = queries.getDaily(imported.machine.id, "2026-10-09"), graphs = availableDailyGraphs(daily.availableChannels);
+      assert.equal(graphs.length, 18);
+      const analysis = queries.getDailyChannelAnalysis(imported.machine.id, "2026-10-09");
+      for (const id of [CpapChannel.FlowLimitation, CpapChannel.Snore, CpapChannel.RespRate, CpapChannel.TidalVolume, CpapChannel.MinuteVent, CpapChannel.InspiratoryTime, CpapChannel.ExpiratoryTime, CpapChannel.IERatio, CpapChannel.TargetMinuteVent, CpapChannel.MaskPressure, CpapChannel.IPAP, CpapChannel.EPAP]) {
+        assert.ok(daily.availableChannels.includes(id));
+        const channel = analysis.channels.find(item => item.channelId === id)!;
+        assert.equal(channel.count, 2); assert.equal(channel.recordedSeconds, 2);
+      }
+      assert.equal(analysis.channels.find(item => item.channelId === CpapChannel.TidalVolume)?.unit, "mL");
+      assert.equal(analysis.channels.find(item => item.channelId === CpapChannel.FlowLimitation)?.unit, "");
+      assert.equal(analysis.channels.find(item => item.channelId === CpapChannel.InspiratoryTime)?.unit, "s");
+    } finally { queries.close(); }
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
 
 test("ResMed loader maps BRP, PLD, SA2, EVE, and CSL into one session", async () => {
   const root = await makeSyntheticCard();

@@ -30,6 +30,14 @@
 @layer base {
   :root { font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:13px; color:var(--text); background:var(--background); }
   body { margin:0; }
+  ::-webkit-scrollbar { width:6px; height:6px; }
+  ::-webkit-scrollbar-track,::-webkit-scrollbar-corner { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:999px; }
+  ::-webkit-scrollbar-thumb:hover { background:var(--muted); }
+  ::-webkit-scrollbar-button { display:none; }
+  @supports not selector(::-webkit-scrollbar) {
+    * { scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+  }
   button { cursor:pointer; border:1px solid transparent; border-radius:6px; padding:7px 11px; background:#2563eb; color:white; font:inherit; }
   button:disabled { opacity:.45; cursor:default; }
   input,select,textarea { font:inherit; padding:7px 9px; border:1px solid var(--border); border-radius:6px; background:var(--surface-alt); color:var(--text); }
@@ -377,6 +385,15 @@ button.secondary { background: var(--surface); color: var(--accent); border: 1px
 .inspector-content table { font-size:10px; }
 .inspector-content th,.inspector-content td { padding:7px 3px; }
 .inspector-content th { font-size:9px; }
+.inspector-content .compact-table { min-width:0; table-layout:fixed; }
+.inspector-content .compact-table th,.inspector-content .compact-table td { overflow-wrap:anywhere; }
+.daily-graph-selector { border-bottom:1px solid var(--border); }
+.daily-graph-selector>summary { padding:10px 14px; cursor:pointer; font-size:12px; color:var(--muted); }
+.daily-graph-selector input[type="checkbox"] { width:auto; }
+.night-statistics th[scope="row"] { min-width:92px; white-space:normal; }
+.inspector-content .night-statistics { min-width:0; table-layout:fixed; }
+.night-statistics th:first-child { width:92px; }
+.night-statistics th,.night-statistics td { overflow-wrap:anywhere; }
 .event-list { display:grid; gap:3px; }
 .event-list button { display:grid; grid-template-columns:1fr 50px 50px; gap:8px; padding:8px; background:var(--surface-alt); color:var(--text); text-align:left; font-size:11px; }
 .event-list span { text-align:right; color:var(--muted); }

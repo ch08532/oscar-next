@@ -19,5 +19,15 @@ test("compiled preload loads with sandbox CommonJS and exposes the scoped IPC AP
   assert.equal(await bridge.getDaily(123, "2026-10-09"), "ok");
   assert.equal(await bridge.getTherapyHistory(123, "2026-10-01", "2026-10-09"), "ok");
   assert.deepEqual(calls, [["app:getInfo"], ["daily:get", 123, "2026-10-09"], ["therapyHistory:get", 123, "2026-10-01", "2026-10-09"]]);
+  calls.length = 0;
+  await bridge.getDailyChannelAnalysis(123, "2026-10-09");
+  await bridge.getTherapyAnalysisPreferences(123);
+  await bridge.setTherapyAnalysisPreferences(123, { leakThreshold: 30, showLeakThreshold: false });
+  await bridge.setGraphVisibility(123, { flow: false, "respiratory-rate": true });
+  assert.deepEqual(calls, [
+    ["daily:getChannelAnalysis", 123, "2026-10-09"], ["analysis:getPreferences", 123],
+    ["analysis:setPreferences", 123, { leakThreshold: 30, showLeakThreshold: false }],
+    ["graphs:setVisibility", 123, { flow: false, "respiratory-rate": true }],
+  ]);
   assert.equal(bridge.require, undefined);
 });

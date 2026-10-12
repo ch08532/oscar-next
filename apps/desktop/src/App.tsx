@@ -1,6 +1,6 @@
 import { TopBarActions } from "./components/TopBarActions";
 import { useEffect, useMemo, useRef, useState, lazy, Suspense, type ChangeEvent } from "react";
-import { DEFAULT_CHART_CHANNELS } from "./channels";
+import { selectedChartChannels } from "./daily-graphs";
 import { GraphStack } from "./Charts";
 const Overview = lazy(() => import("./Overview").then(module => ({ default: module.Overview })));
 import { Statistics } from "./Statistics";
@@ -29,6 +29,7 @@ import type {
   SetupState,
   StoredMachineSummary,
   GraphBookmark,
+  GraphPreference,
 } from "./types";
 
 function todayKey(): string {
@@ -76,6 +77,7 @@ export function App({ deployment = "desktop" }: { deployment?: "desktop" | "brow
   const [date, setDate] = useState(todayKey());
   const [daily, setDaily] = useState<DailySummary>();
   const [charts, setCharts] = useState<ChartQueryResult>();
+  const [initialGraphPreferences, setInitialGraphPreferences] = useState<GraphPreference[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
   const [dataRevision, setDataRevision] = useState(0);
@@ -248,9 +250,14 @@ export function App({ deployment = "desktop" }: { deployment?: "desktop" | "brow
     setDaily(undefined); setCharts(undefined); setGraphBookmarks([]); setGraphNavigation(undefined);
     Promise.all([
       window.oscar.getDaily(machineId, date),
-      window.oscar.getChartSeries(machineId, date, [...DEFAULT_CHART_CHANNELS], { maxPointsPerSeries: 4_000 }),
-    ]).then(([nextDaily, nextCharts]) => {
+      window.oscar.getGraphPreferences(machineId),
+    ]).then(async ([nextDaily, preferences]) => {
       if (cancelled) return;
+      const channels = selectedChartChannels(nextDaily.availableChannels, preferences);
+      const nextCharts = channels.length ? await window.oscar.getChartSeries(machineId, date, channels, { maxPointsPerSeries: 4_000 })
+        : { machineId, date, rangeStartMs: nextDaily.rangeStartMs, rangeEndMs: nextDaily.rangeEndMs, series: [] };
+      if (cancelled) return;
+      setInitialGraphPreferences(preferences);
       setDaily(nextDaily); setCharts(nextCharts);
     }).catch((cause) => { if (!cancelled) setError(cause instanceof Error ? cause.message : String(cause)); })
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -304,7 +311,7 @@ export function App({ deployment = "desktop" }: { deployment?: "desktop" | "brow
               return <span key={channel} className="event-chip" title={EVENT_PRESENTATION[channel].name} style={{ borderColor: `${EVENT_PRESENTATION[channel].color}55`, color: EVENT_PRESENTATION[channel].color }}><i style={{ background: EVENT_PRESENTATION[channel].color }} />{EVENT_PRESENTATION[channel].label}<strong>{summary ? daily.eventIndices[key].toFixed(2) : daily.eventCounts[key]}</strong></span>;
             })}{charts?.series.some(series => series.channelId === Channel.CSR) && <span className="event-chip" style={{ color: EVENT_PRESENTATION[Channel.CSR].color }}>CSR <strong>{charts.series.filter(series => series.channelId === Channel.CSR).reduce((sum, series) => sum + series.timesMs.length, 0)}</strong><small>spans</small></span>}<span className="ml-auto text-xs text-[var(--muted)]">{daily.date} · {daily.deviceTimeZone}</span></div>
             <div className={`daily-workspace grid grid-cols-[minmax(0,1fr)] items-start gap-3.5 ${inspectorOpen ? "with-inspector min-[1351px]:grid-cols-[minmax(0,1fr)_336px]" : ""}`}>
-              <Card className="graphs-panel min-w-0 border-[var(--border)] bg-[var(--surface)] p-0 shadow-none dark:border-[var(--border)] dark:bg-[var(--surface)]"><div className="graphs-title"><div><h2>Waveform workspace</h2><p>Synchronised signals · device wall-clock time</p></div><span>{daily.availableChannels.length} stored channels</span></div>{charts ? <GraphStack data={charts} daily={daily} navigation={graphNavigation} bookmarkRevision={bookmarkRevision} onBookmarksChange={setGraphBookmarks} /> : <div className="graph-empty">Loading chart data…</div>}</Card>
+              <Card className="graphs-panel min-w-0 border-[var(--border)] bg-[var(--surface)] p-0 shadow-none dark:border-[var(--border)] dark:bg-[var(--surface)]"><div className="graphs-title"><div><h2>Waveform workspace</h2><p>Synchronised signals · device wall-clock time</p></div><span>{daily.availableChannels.length} stored channels</span></div>{charts ? <GraphStack data={charts} daily={daily} initialPreferences={initialGraphPreferences} navigation={graphNavigation} bookmarkRevision={bookmarkRevision} onBookmarksChange={setGraphBookmarks} /> : <div className="graph-empty">Loading chart data…</div>}</Card>
               {inspectorOpen && <button className="inspector-shade" aria-label="Dismiss Night Inspector" onClick={() => setInspectorOpen(false)} />}{inspectorOpen && <NightInspector key={`${machineId}-${daily.date}`} daily={daily} charts={charts} onClose={() => setInspectorOpen(false)} onToggleSession={(id, enabled) => void setSessionEnabled(id, enabled)} onDate={setDate} bookmarks={graphBookmarks} onBookmarkDelete={id => { void window.oscar.deleteGraphBookmark(machineId, id).then(() => setBookmarkRevision(value => value + 1)).catch(cause => setError(String(cause))); }} onNavigate={(startMs, endMs) => setGraphNavigation({ startMs, endMs, requestId: Date.now() })} />}
             </div>
           </>}

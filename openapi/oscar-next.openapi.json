@@ -1731,6 +1731,283 @@
         },
         "description": "Contiguous therapy dates with included-session counts and mask-on usage hours. Includes summary-only sessions and zero-use days; excludes disabled sessions. Reads session metadata and slices without waveform, event or settings payloads."
       }
+    },
+    "/api/v1/machines/{machineId}/daily/{date}/channel-analysis": {
+      "get": {
+        "tags": [
+          "Daily"
+        ],
+        "summary": "Raw-sample nightly channel statistics and leak duration",
+        "description": "Enabled sessions only, clipped to therapy-day bounds and mask-on intervals. Duration-weighted nearest-rank percentiles; missing samples are excluded. Independent of chart visibility/decimation. Flow and uninterpreted respiratory event signals are excluded.",
+        "parameters": [
+          {
+            "name": "machineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "date",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Therapy date (noon-to-noon for ResMed-compatible queries)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Night analysis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyChannelAnalysis"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/machines/{machineId}/analysis-preferences": {
+      "get": {
+        "tags": [
+          "Daily"
+        ],
+        "summary": "Per-machine therapy analysis preferences",
+        "parameters": [
+          {
+            "name": "machineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Preferences",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TherapyAnalysisPreferences"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Daily"
+        ],
+        "summary": "Save per-machine leak threshold and graph reference line preference",
+        "parameters": [
+          {
+            "name": "machineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TherapyAnalysisPreferences"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved preferences",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TherapyAnalysisPreferences"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/machines/{machineId}/graphs/visibility": {
+      "put": {
+        "tags": [
+          "Graphs"
+        ],
+        "summary": "Atomically update selected graph visibility without changing order, height or pin state",
+        "parameters": [
+          {
+            "name": "machineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "visibility"
+                ],
+                "properties": {
+                  "visibility": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Visibility saved"
+          },
+          "400": {
+            "description": "Invalid input",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2459,6 +2736,10 @@
             "type": "integer",
             "minimum": 100,
             "maximum": 520
+          },
+          "visible": {
+            "type": "boolean",
+            "description": "Optional explicit visibility. When absent, use the graph default."
           }
         }
       },
@@ -2605,6 +2886,143 @@
           "usageHours": {
             "type": "number",
             "minimum": 0
+          }
+        }
+      },
+      "TherapyAnalysisPreferences": {
+        "type": "object",
+        "required": [
+          "leakThreshold",
+          "showLeakThreshold"
+        ],
+        "properties": {
+          "leakThreshold": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1000,
+            "default": 24,
+            "description": "Strict greater-than threshold in L/min"
+          },
+          "showLeakThreshold": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "DailyChannelStatistics": {
+        "type": "object",
+        "required": [
+          "channelId",
+          "label",
+          "unit",
+          "count",
+          "recordedSeconds",
+          "min",
+          "average",
+          "percentile50",
+          "percentile95",
+          "max"
+        ],
+        "properties": {
+          "channelId": {
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer"
+          },
+          "recordedSeconds": {
+            "type": "number",
+            "description": "Elapsed valid recorded coverage"
+          },
+          "min": {
+            "type": "number",
+            "description": "Minimum"
+          },
+          "average": {
+            "type": "number",
+            "description": "Duration-weighted mean"
+          },
+          "percentile50": {
+            "type": "number",
+            "description": "Duration-weighted nearest-rank median"
+          },
+          "percentile95": {
+            "type": "number",
+            "description": "Duration-weighted nearest-rank 95th percentile"
+          },
+          "max": {
+            "type": "number",
+            "description": "Maximum"
+          }
+        }
+      },
+      "LeakThresholdAnalysis": {
+        "type": "object",
+        "required": [
+          "threshold",
+          "unit",
+          "secondsAboveThreshold",
+          "recordedSeconds",
+          "percentTherapyTimeAboveThreshold"
+        ],
+        "properties": {
+          "threshold": {
+            "type": "number",
+            "description": "Configured leak threshold"
+          },
+          "unit": {
+            "type": "string",
+            "const": "L/min"
+          },
+          "secondsAboveThreshold": {
+            "type": "number",
+            "description": "Merged recorded elapsed time strictly above threshold"
+          },
+          "recordedSeconds": {
+            "type": "number",
+            "description": "Merged valid leak recording coverage"
+          },
+          "percentTherapyTimeAboveThreshold": {
+            "type": "number",
+            "description": "100 * secondsAboveThreshold / included mask-on therapy seconds; missing readings remain unknown"
+          }
+        }
+      },
+      "DailyChannelAnalysis": {
+        "type": "object",
+        "required": [
+          "machineId",
+          "date",
+          "therapySeconds",
+          "channels"
+        ],
+        "properties": {
+          "machineId": {
+            "type": "integer"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "therapySeconds": {
+            "type": "number",
+            "description": "Merged enabled mask-on elapsed time, including summary-only therapy"
+          },
+          "channels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DailyChannelStatistics"
+            }
+          },
+          "leak": {
+            "$ref": "#/components/schemas/LeakThresholdAnalysis",
+            "description": "Absent if no valid leak samples; never synthesize zero for missing recordings."
           }
         }
       }

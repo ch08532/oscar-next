@@ -1,31 +1,15 @@
 import { Pin, GripVertical, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from "react";
-import { Channel, DEFAULT_CHART_CHANNELS, EVENT_CHANNELS } from "./channels";
+import { Channel, EVENT_CHANNELS } from "./channels";
 import type { ChartQueryResult, ChartSeries, DailySummary, GraphBookmark, GraphPreference } from "./types";
 import { channelStatistics, countEvents, eventsNearCursor, hasSamplesInViewport, lowerBound, nearestPoint, statistics, therapyWindowEventSummary, valuesInViewport } from "./chart-analysis";
 import { EVENT_PRESENTATION } from "./event-presentation";
 import type { GraphNavigation } from "./components/NightInspector";
 import { ChartEmptyState } from "./components/ChartEmptyState";
+import { availableDailyGraphs, CHANNEL_METADATA, graphPresetVisibility, isGraphVisible, selectedChartChannels, type GraphDefinition } from "./daily-graphs";
+import { DEFAULT_THERAPY_ANALYSIS } from "../../../src/core/therapy-analysis";
 
 type Viewport = { startMs: number; endMs: number };
-
-type GraphDefinition = {
-  key: string;
-  title: string;
-  channelIds: readonly number[];
-  height?: number;
-  zeroBaseline?: boolean;
-  symmetric?: boolean;
-  unitFallback?: string;
-};
-
-const GRAPHS: readonly GraphDefinition[] = [
-  { key: "flow", title: "Flow Rate", channelIds: [Channel.FlowRate], height: 205, symmetric: true, unitFallback: "L/min" },
-  { key: "pressure", title: "Pressure", channelIds: [Channel.Pressure, Channel.MaskPressureHigh, Channel.IPAP, Channel.EPAP], height: 180, zeroBaseline: true, unitFallback: "cmH₂O" },
-  { key: "leak", title: "Leak Rate", channelIds: [Channel.Leak], height: 165, zeroBaseline: true, unitFallback: "L/min" },
-  { key: "spo2", title: "SpO₂", channelIds: [Channel.SpO2], height: 145, unitFallback: "%" },
-  { key: "pulse", title: "Pulse", channelIds: [Channel.Pulse], height: 145, zeroBaseline: true, unitFallback: "bpm" },
-];
 
 const EVENT_META: Readonly<Record<number, { label: string; name: string }>> = Object.freeze({
   [Channel.ObstructiveApnea]: { label: "OA", name: "Obstructive" },
@@ -348,16 +332,17 @@ function useResizableGraphHeight(initialHeight: number, onCommit: (height: numbe
   return { height, onResizePointerDown };
 }
 
-function GraphPanel({ definition, series, interaction, pinned, height: storedHeight, onTogglePin, onHeightCommit, onDragStart, onDropGraph }: {
+function GraphPanel({ definition, series, interaction, pinned, height: storedHeight, threshold, onTogglePin, onHeightCommit, onDragStart, onDropGraph }: {
   definition: GraphDefinition; series: ChartSeries[]; interaction: InteractionProps; pinned: boolean; height: number;
+  threshold?: number;
   onTogglePin: () => void; onHeightCommit: (height: number) => void; onDragStart: (key: string) => void; onDropGraph: (source: string, target: string) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const { height, onResizePointerDown } = useResizableGraphHeight(storedHeight, onHeightCommit);
   const events = useGraphInteractions(interaction);
-  const unit = series.find((item) => item.dimension)?.dimension || definition.unitFallback || "";
-  const channelNames = [...new Set(series.map((item) => CHANNEL_META[item.channelId]?.name).filter(Boolean))].join(" / ");
+  const unit = definition.unitFallback || series.find((item) => item.dimension)?.dimension || "";
+  const channelNames = [...new Set(series.map((item) => CHANNEL_META[item.channelId]?.name ?? CHANNEL_METADATA[item.channelId]?.name).filter(Boolean))].join(" / ");
   const cursorPoints = useMemo(() => {
     if (interaction.cursorMs === undefined) return [];
     return series.flatMap((item) => {
@@ -366,8 +351,8 @@ function GraphPanel({ definition, series, interaction, pinned, height: storedHei
       return [{
         item,
         point,
-        name: CHANNEL_META[item.channelId]?.name ?? String(item.channelId),
-        unit: item.dimension || definition.unitFallback || "",
+        name: CHANNEL_META[item.channelId]?.name ?? CHANNEL_METADATA[item.channelId]?.name ?? String(item.channelId),
+        unit: definition.unitFallback || item.dimension || "",
       }];
     });
   }, [definition.unitFallback, interaction.cursorMs, series]);
@@ -383,17 +368,25 @@ function GraphPanel({ definition, series, interaction, pinned, height: storedHei
         const extent = Math.max(Math.abs(bounds.min), Math.abs(bounds.max), 1);
         bounds = { min: -extent, max: extent };
       } else if (definition.zeroBaseline) bounds.min = Math.min(0, bounds.min);
+      if (threshold !== undefined) bounds.max = Math.max(bounds.max, threshold);
       const padding = Math.max(0.1, (bounds.max - bounds.min) * 0.08);
       const yMin = definition.symmetric ? bounds.min : bounds.min - padding;
       const yMax = definition.symmetric ? bounds.max : bounds.max + padding;
       const geometry = drawGrid(context, width, height, interaction.viewport, yMin, yMax, unit);
+      if (threshold !== undefined) {
+        const y = geometry.top + (1 - (threshold - yMin) / (yMax - yMin)) * geometry.plotHeight;
+        context.save(); context.strokeStyle = canvasColor("--muted"); context.setLineDash([5, 4]);
+        context.beginPath(); context.moveTo(geometry.left, y); context.lineTo(width - geometry.right, y); context.stroke();
+        context.fillStyle = canvasColor("--muted"); context.textAlign = "right";
+        context.fillText(`Large Leak ${threshold} L/min`, width - geometry.right - 4, Math.max(geometry.top + 6, y - 8)); context.restore();
+      }
       series.forEach((item) => drawSeries(context, item, interaction.viewport, geometry, yMin, yMax));
     };
     draw();
     const observer = new ResizeObserver(draw); observer.observe(canvas);
     window.addEventListener("oscar-theme-change", draw);
     return () => { observer.disconnect(); window.removeEventListener("oscar-theme-change", draw); };
-  }, [definition, height, interaction.viewport, series, unit]);
+  }, [definition, height, interaction.viewport, series, unit, threshold]);
 
   useEffect(() => {
     const canvas = overlayRef.current; if (!canvas) return;
@@ -557,13 +550,14 @@ function EventFlags({ series, interaction, pinned, height: storedHeight, onToggl
   </section>;
 }
 
-export function GraphStack({ data, daily, navigation, bookmarkRevision = 0, onBookmarksChange }: {
+export function GraphStack({ data, daily, navigation, initialPreferences = [], bookmarkRevision = 0, onBookmarksChange }: {
   data: ChartQueryResult; daily: DailySummary; navigation?: GraphNavigation;
   bookmarkRevision?: number; onBookmarksChange?(bookmarks: GraphBookmark[]): void;
+  initialPreferences?: GraphPreference[];
 }) {
   const bounds = useMemo<Viewport>(() => {
     const enabled = daily.sessions.filter((session) => session.enabled !== false);
-    if (enabled.length) return { startMs: Math.min(...enabled.map((session) => session.firstMs)), endMs: Math.max(...enabled.map((session) => session.lastMs)) };
+    if (enabled.length) return { startMs: Math.max(data.rangeStartMs, Math.min(...enabled.map((session) => session.firstMs))), endMs: Math.min(data.rangeEndMs, Math.max(...enabled.map((session) => session.lastMs))) };
     const points = data.series.flatMap((series) => series.timesMs.length ? [series.timesMs[0] ?? data.rangeStartMs, series.timesMs[series.timesMs.length - 1] ?? data.rangeEndMs] : []);
     return points.length ? { startMs: Math.min(...points), endMs: Math.max(...points) } : { startMs: data.rangeStartMs, endMs: data.rangeEndMs };
   }, [daily.sessions, data]);
@@ -571,7 +565,14 @@ export function GraphStack({ data, daily, navigation, bookmarkRevision = 0, onBo
   const [cursorMs, setCursorMs] = useState<number>();
   const [detailData, setDetailData] = useState<ChartQueryResult>(data);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [graphPreferences, setGraphPreferences] = useState<GraphPreference[]>([]);
+  const [graphPreferences, setGraphPreferences] = useState<GraphPreference[]>(initialPreferences);
+  const availableChannels = useMemo(() => [...new Set([...daily.availableChannels, ...data.series.map(item => item.channelId)])], [daily.availableChannels, data.series]);
+  const availableGraphs = useMemo(() => availableDailyGraphs(availableChannels), [availableChannels]);
+  const selectedChannelsKey = selectedChartChannels(availableChannels, graphPreferences).join(",");
+  const initialChannelsKey = useRef(selectedChannelsKey);
+  const [analysisPreferences, setAnalysisPreferences] = useState({ ...DEFAULT_THERAPY_ANALYSIS });
+  const [layoutError, setLayoutError] = useState<string>();
+  const [layoutSaving, setLayoutSaving] = useState(false);
   const [bookmarks, setBookmarks] = useState<GraphBookmark[]>([]);
   const [bookmarkName, setBookmarkName] = useState("");
 
@@ -582,11 +583,9 @@ export function GraphStack({ data, daily, navigation, bookmarkRevision = 0, onBo
 
   useEffect(() => {
     let cancelled = false;
-    window.oscar.getGraphPreferences(data.machineId).then((preferences) => {
-      if (!cancelled) setGraphPreferences(preferences);
-    }).catch(() => {
-      if (!cancelled) setGraphPreferences([]);
-    });
+    window.oscar.getTherapyAnalysisPreferences(data.machineId).then(preferences => {
+      if (!cancelled) setAnalysisPreferences(preferences);
+    }).catch(cause => { if (!cancelled) setLayoutError(String(cause)); });
     return () => { cancelled = true; };
   }, [data.machineId]);
 
@@ -604,13 +603,22 @@ export function GraphStack({ data, daily, navigation, bookmarkRevision = 0, onBo
     return graphPreferences.find((item) => item.key === key);
   }
 
+  async function changeVisibility(visibility: Record<string, boolean>) {
+    setLayoutSaving(true); setLayoutError(undefined);
+    try {
+      await window.oscar.setGraphVisibility(data.machineId, visibility);
+      setGraphPreferences(await window.oscar.getGraphPreferences(data.machineId));
+    } catch (cause) { setLayoutError(String(cause)); }
+    finally { setLayoutSaving(false); }
+  }
+
   async function toggleGraphPinned(key: string) {
     const existing = graphPreference(key);
     const pinned = !(existing?.pinned ?? false);
     const sortOrder = existing?.sortOrder ?? (graphPreferences.reduce((max, item) => Math.max(max, item.sortOrder), -1) + 1);
     setGraphPreferences((current) => {
       const without = current.filter((item) => item.key !== key);
-      return [...without, { key, pinned, sortOrder }];
+      return [...without, { ...existing, key, pinned, sortOrder }];
     });
     try { await window.oscar.setGraphPinned(data.machineId, key, pinned); }
     catch {
@@ -622,7 +630,7 @@ export function GraphStack({ data, daily, navigation, bookmarkRevision = 0, onBo
 
   function defaultGraphHeight(key: string): number {
     if (key === "events") return 170;
-    return GRAPHS.find((definition) => definition.key === key)?.height ?? 170;
+    return availableGraphs.find((definition) => definition.key === key)?.height ?? 170;
   }
 
   async function commitGraphHeight(key: string, height: number) {
@@ -630,7 +638,7 @@ export function GraphStack({ data, daily, navigation, bookmarkRevision = 0, onBo
     const sortOrder = existing?.sortOrder ?? (graphPreferences.reduce((max, item) => Math.max(max, item.sortOrder), -1) + 1);
     setGraphPreferences((current) => [
       ...current.filter((item) => item.key !== key),
-      { key, pinned: existing?.pinned ?? false, sortOrder, height },
+      { ...existing, key, pinned: existing?.pinned ?? false, sortOrder, height },
     ]);
     try { await window.oscar.setGraphHeight(data.machineId, key, height); }
     catch {
@@ -654,10 +662,10 @@ export function GraphStack({ data, daily, navigation, bookmarkRevision = 0, onBo
     if (from < 0 || to < 0) return;
     keys.splice(from, 1);
     keys.splice(to, 0, sourceKey);
-    setGraphPreferences((current) => keys.map((key, index) => {
+    setGraphPreferences((current) => [...current.filter(item => !keys.includes(item.key)), ...keys.map((key, index) => {
       const existing = current.find((item) => item.key === key);
-      return { key, pinned: existing?.pinned ?? false, sortOrder: index, ...(existing?.height !== undefined ? { height: existing.height } : {}) };
-    }));
+      return { ...existing, key, pinned: existing?.pinned ?? false, sortOrder: index };
+    })]);
     try { await window.oscar.setGraphOrder(data.machineId, keys); }
     catch {
       const preferences = await window.oscar.getGraphPreferences(data.machineId).catch(() => [] as GraphPreference[]);
@@ -690,15 +698,17 @@ export function GraphStack({ data, daily, navigation, bookmarkRevision = 0, onBo
 
   const fullView = Math.abs(viewport.startMs - bounds.startMs) <= 1 && Math.abs(viewport.endMs - bounds.endMs) <= 1;
   useEffect(() => {
-    if (fullView) { setDetailData(data); setDetailLoading(false); return; }
+    if (fullView && selectedChannelsKey === initialChannelsKey.current) { setDetailData(data); setDetailLoading(false); return; }
     let cancelled = false;
     const timer = window.setTimeout(() => {
       setDetailLoading(true);
-      window.oscar.getChartSeries(data.machineId, data.date, [...DEFAULT_CHART_CHANNELS], {
+      const channels = selectedChannelsKey ? selectedChannelsKey.split(",").map(Number) : [];
+      const request = channels.length ? window.oscar.getChartSeries(data.machineId, data.date, channels, {
         startMs: viewport.startMs,
         endMs: viewport.endMs,
         maxPointsPerSeries: 12_000,
-      }).then((next) => {
+      }) : Promise.resolve({ ...data, rangeStartMs: viewport.startMs, rangeEndMs: viewport.endMs, series: [] });
+      request.then((next) => {
         if (!cancelled) setDetailData(next);
       }).catch(() => {
         // Keep the coarse full-day data visible if a detail fetch fails.
@@ -707,17 +717,17 @@ export function GraphStack({ data, daily, navigation, bookmarkRevision = 0, onBo
       });
     }, 140);
     return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [data, fullView, viewport.endMs, viewport.startMs]);
+  }, [data, fullView, viewport.endMs, viewport.startMs, selectedChannelsKey]);
 
   const detailCoversViewport = detailData.rangeStartMs <= viewport.startMs + 1 && detailData.rangeEndMs >= viewport.endMs - 1;
   const renderData = fullView || detailCoversViewport ? detailData : data;
   const interaction: InteractionProps = { viewport, bounds, cursorMs, setViewport, setCursorMs, resetViewport: () => setViewport(bounds) };
   // Keep rows and zoom controls available when a detail window falls in a data gap.
-  const graphEntries = GRAPHS.filter((definition) => data.series.some((item) => definition.channelIds.includes(item.channelId)))
+  const graphEntries = availableGraphs.filter(definition => definition.key !== "events" && isGraphVisible(definition, graphPreferences))
     .map((definition) => ({ definition, series: renderData.series.filter((item) => definition.channelIds.includes(item.channelId)) }));
   const eventChannelIds = EVENT_CHANNELS as readonly number[];
   const eventSeries = renderData.series.filter((item) => eventChannelIds.includes(item.channelId));
-  const hasEventChannels = data.series.some((item) => eventChannelIds.includes(item.channelId));
+  const hasEventChannels = availableGraphs.some(definition => definition.key === "events" && isGraphVisible(definition, graphPreferences));
   const graphRows = [
     ...(hasEventChannels ? [{ key: "events", kind: "events" as const, baseOrder: 0 }] : []),
     ...graphEntries.map((entry, index) => ({ key: entry.definition.key, kind: "graph" as const, baseOrder: index + 1, entry })),
@@ -752,9 +762,13 @@ export function GraphStack({ data, daily, navigation, bookmarkRevision = 0, onBo
     return { source, returned, decimated };
   }, [renderData.series]);
 
-  if (graphEntries.length === 0 && !hasEventChannels) return <ChartEmptyState className="graph-empty" />;
-
   return <div className="graph-stack">
+    {layoutError && <div className="error" role="alert">{layoutError}</div>}
+    <details className="daily-graph-selector"><summary>Graphs · {graphRows.length} visible</summary>
+      <div className="flex flex-wrap gap-2 p-3">{(["Standard", "Respiratory"] as const).map(preset => <button key={preset} type="button" className="secondary" disabled={layoutSaving} onClick={() => void changeVisibility(graphPresetVisibility(preset, availableGraphs))}>{preset}</button>)}</div>
+      <div className="grid gap-3 p-3 sm:grid-cols-3">{(["Standard", "Respiratory", "Oximetry"] as const).map(group => <fieldset key={group}><legend className="mb-2 text-xs font-semibold text-[var(--muted)]">{group}</legend>{availableGraphs.filter(graph => graph.group === group).map(graph => <label className="flex items-center gap-2 py-1 text-sm" key={graph.key}><input type="checkbox" className="!w-auto" checked={isGraphVisible(graph, graphPreferences)} disabled={layoutSaving} onChange={event => void changeVisibility({ [graph.key]: event.target.checked })} />{graph.title}</label>)}</fieldset>)}</div>
+      {availableGraphs.length === 0 && <p className="px-3 pb-3 text-sm text-[var(--muted)]">No detailed channels on this night.</p>}
+    </details>
     <div className="graph-toolbar">
       <div><strong>{timeLabel(viewport.startMs, true)} – {timeLabel(viewport.endMs, true)}</strong><span>{((viewport.endMs - viewport.startMs) / 3_600_000).toFixed(2)} h window · {windowStats.therapyHours.toFixed(2)} h therapy</span></div>
       <div className="graph-help">Wheel to zoom · drag to pan · double-click to reset{cursorMs !== undefined ? ` · cursor ${timeLabel(cursorMs, true)}` : ""}</div>
@@ -787,8 +801,9 @@ export function GraphStack({ data, daily, navigation, bookmarkRevision = 0, onBo
       <div><span>Flow range</span><strong>{windowStats.flow ? `${windowStats.flow.min.toFixed(0)}…${windowStats.flow.max.toFixed(0)}` : "—"}</strong><small>{windowStats.flow ? "L/min" : "No data"}</small></div>
     </div>
     </details>
+    {graphRows.length === 0 && (availableGraphs.length ? <div className="graph-empty">No graphs selected. Choose graphs above.</div> : <ChartEmptyState className="graph-empty" />)}
     {graphRows.map((row) => row.kind === "events"
       ? <EventFlags key={row.key} series={eventSeries} interaction={interaction} pinned={graphPreference(row.key)?.pinned ?? false} height={graphPreference(row.key)?.height ?? defaultGraphHeight(row.key)} onTogglePin={() => void toggleGraphPinned(row.key)} onHeightCommit={(height) => void commitGraphHeight(row.key, height)} onDragStart={() => undefined} onDropGraph={(source, target) => void reorderGraph(source, target)} />
-      : <GraphPanel key={row.key} definition={row.entry.definition} series={row.entry.series} interaction={interaction} pinned={graphPreference(row.key)?.pinned ?? false} height={graphPreference(row.key)?.height ?? defaultGraphHeight(row.key)} onTogglePin={() => void toggleGraphPinned(row.key)} onHeightCommit={(height) => void commitGraphHeight(row.key, height)} onDragStart={() => undefined} onDropGraph={(source, target) => void reorderGraph(source, target)} />)}
+      : <GraphPanel key={row.key} definition={row.entry.definition} threshold={row.key === "leak" && analysisPreferences.showLeakThreshold ? analysisPreferences.leakThreshold : undefined} series={row.entry.series} interaction={interaction} pinned={graphPreference(row.key)?.pinned ?? false} height={graphPreference(row.key)?.height ?? defaultGraphHeight(row.key)} onTogglePin={() => void toggleGraphPinned(row.key)} onHeightCommit={(height) => void commitGraphHeight(row.key, height)} onDragStart={() => undefined} onDropGraph={(source, target) => void reorderGraph(source, target)} />)}
   </div>;
 }

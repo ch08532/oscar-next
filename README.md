@@ -176,7 +176,7 @@ Implemented:
   - second event fields where used
   - per-machine session identity (session IDs may repeat across different machines)
   - transactional complete-snapshot updates, preventing duplicate sessions on re-import
-  - schema version tracking (current schema v6) and WAL mode
+  - schema version tracking (current schema v7) and WAL mode
 - Read-only Daily/Overview query API on top of SQLite:
   - explicit noon-to-noon therapy-day ranges
   - Daily session list and usage hours
@@ -366,6 +366,39 @@ npm run desktop:run
 ```
 
 For renderer development, run Vite from `apps/desktop` and set `OSCAR_RENDERER_URL` to the Vite URL before launching Electron. The current execution environment used to build this milestone could not complete package-registry installation, so Electron/Vite could not be launched here. The renderer source was statically checked with TypeScript using local React declaration stubs; the root backend/Electron entry points compile and all backend tests pass.
+
+## Daily respiratory graphs and leak analysis
+
+Open **Graphs** in the Daily waveform workspace to show or hide the channels
+recorded on the selected night. Choices are grouped as Standard, Respiratory,
+and Oximetry. The **Standard** and **Respiratory** buttons apply visibility
+presets using available channels only. Pinning, drag order, height, visibility,
+and saved zoom views persist per device; presets preserve order, pinning and
+height. Existing combined Pressure graphs remain available alongside separate
+Mask Pressure, IPAP and EPAP graphs. Flow Limitation, Snore, Respiratory Rate,
+Tidal Volume, Minute Ventilation, Ti/Te, I:E and Target Minute Ventilation appear
+when imported. All use the same synchronized Canvas viewport and cursor.
+
+**Night Inspector → Summary → Night Statistics** shows minimum, average, median,
+95th percentile and maximum for recorded numeric channels. These use raw samples
+from included sessions, clipped to mask-on intervals and the therapy date.
+Average/quantiles use elapsed valid sample time, so differing rates do not bias
+the result. Summary-only therapy does not create raw channel statistics.
+Signed Flow and the uninterpreted respiratory event signal remain chart-only
+and unsupported, respectively. Existing AHI, Daily metric cards and aggregate
+Statistics calculations retain their conventions.
+
+In **Settings → Therapy Analysis**, set the device's **Large Leak Threshold**
+(default **24 L/min**) and choose whether to show its dashed Leak graph reference
+line. Leak Analysis reports recorded seconds strictly above the threshold and
+their percentage of included mask-on therapy time. It also shows recording
+coverage: gaps and missing readings remain unknown. Changing settings updates
+the analysis and reference line when returning to Daily. This preference is
+shared between desktop and web clients using the same database.
+
+Schema v7 adds optional graph visibility without overwriting existing layouts.
+See [the implementation plan](DAILY-RESPIRATORY-GRAPHS-PLAN.md) and
+[validation results](DAILY-RESPIRATORY-GRAPHS-VALIDATION.md).
 
 ## First run, profiles, and device time
 

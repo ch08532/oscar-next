@@ -1,5 +1,44 @@
 # OSCAR Next 2.3.0 Windows validation — 2026-10-10
 
+## Scrollbar styling follow-up — 2026-10-12
+
+- Shared renderer now uses 6px scrollbars with transparent tracks, rounded
+  theme-aware thumbs and a clearer hover color. Other browser engines use
+  their native thin scrollbar setting. Scrolling behavior remains available.
+- `npm test`: PASS, 156 tests. Desktop and headless renderer builds: PASS.
+  Visual verification of the scrollbar styling remains a manual check.
+
+## Night Statistics visibility follow-up — 2026-10-12
+
+- Sessions follow-up: scoped the compact Sessions table to fit the inspector
+  without horizontal scrolling. `npm test`: PASS, 156 tests; desktop and
+  headless builds: PASS. `node .validation/check-sessions-layout.mjs`: PASS at
+  1920, 1600, 1440 and 1280px, with all inclusion/time/usage cells fitting the
+  287.2px container without clipped content. Used isolated synthetic sessions.
+- Confirmed the generic table minimum width hid all numeric columns outside
+  the Night Inspector. Scoped the nightly table to fit its panel.
+- `npm run verify`: PASS, 156 tests and smoke; desktop and headless renderer
+  builds: PASS. Synthetic browser geometry checks: PASS at four viewport widths,
+  with all 85 numeric cells visible. Details in
+  [Daily respiratory graphs validation](DAILY-RESPIRATORY-GRAPHS-VALIDATION.md).
+
+## Daily respiratory graphs follow-up — 2026-10-12
+
+- Windows 11 x64 (OS 10.0.26200), Node v24.21.0, npm 11.19.0,
+  Electron 37.10.3. Used isolated synthetic data only.
+- `npm run verify`: PASS, 156 tests and synthetic demo smoke.
+- `npm --prefix apps/desktop run build`,
+  `npm --prefix apps/desktop run build:headless`, and
+  `apps/desktop/node_modules/.bin/tsc.cmd --noEmit -p apps/desktop/tsconfig.json`:
+  PASS.
+- Actual Electron IPC and browser REST checks: PASS for graph availability,
+  presets, visibility persistence, layout controls, synchronized cursors,
+  zoom/pan/bookmarks, nightly statistics, leak threshold controls, excluded
+  sessions, summary-only nights, and three desktop viewport sizes.
+- Complete channel inventory, regression results, query plans, synthetic
+  performance measurements, and remaining real-card/Pi/packaging checks:
+  [Daily respiratory graphs validation](DAILY-RESPIRATORY-GRAPHS-VALIDATION.md).
+
 ## Native menu follow-up — 2026-10-12
 
 - Windows 11 x64 (OS 10.0.26200), Node v24.21.0, npm 11.19.0,

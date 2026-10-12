@@ -2,7 +2,8 @@ import type {
   AppInfo, ChartQueryOptions, ChartQueryResult, DailySummary, DetectedMedia, GraphBookmark, GraphPreference,
   ImportPreview, ImportProgress, ImportStoreResult, MachineTimeSettings, OscarApi, OverviewDaySummary,
   ProfileSummary, SetupState, StatisticsSummary, StoredMachineSummary, TherapyHistoryDay,
-} from "./types";
+  DailyChannelAnalysis, TherapyAnalysisPreferences,
+} from "./types.js";
 
 interface ApiHealth {
   status: string;
@@ -86,7 +87,7 @@ export function createRestOscarApi(token?: string): OscarApi {
     },
     async getSetupState(): Promise<SetupState> {
       const state = await json<ApiState>("/api/v1/state");
-      return { systemTimeZone: state.systemTimeZone, profiles: state.profiles, activeProfile: state.activeProfile, needsSetup: state.needsSetup, databasePath: "headless://server" };
+      return { systemTimeZone: state.systemTimeZone, profiles: state.profiles, ...(state.activeProfile ? { activeProfile: state.activeProfile } : {}), needsSetup: state.needsSetup, databasePath: "headless://server" };
     },
     async completeSetup(name: string, timeZone: string): Promise<SetupState> {
       const profile = await json<ProfileSummary>("/api/v1/profiles", { method: "POST", body: JSON.stringify({ name, timeZone }) });
@@ -155,6 +156,10 @@ export function createRestOscarApi(token?: string): OscarApi {
       return () => { stopped = true; window.clearInterval(timer); };
     },
     getDaily(machineId: number, date: string) { return json<DailySummary>(`/api/v1/machines/${machineId}/daily/${date}`); },
+    getDailyChannelAnalysis(machineId: number, date: string) { return json<DailyChannelAnalysis>(`/api/v1/machines/${machineId}/daily/${date}/channel-analysis`); },
+    getTherapyAnalysisPreferences(machineId: number) { return json<TherapyAnalysisPreferences>(`/api/v1/machines/${machineId}/analysis-preferences`); },
+    setTherapyAnalysisPreferences(machineId: number, preferences: TherapyAnalysisPreferences) { return json<TherapyAnalysisPreferences>(`/api/v1/machines/${machineId}/analysis-preferences`, { method: "PUT", body: JSON.stringify(preferences) }); },
+    async setGraphVisibility(machineId: number, visibility: Record<string, boolean>) { await json<void>(`/api/v1/machines/${machineId}/graphs/visibility`, { method: "PUT", body: JSON.stringify({ visibility }) }); },
     async setSessionEnabled(machineId: number, sessionId: number, enabled: boolean) {
       await json<void>(`/api/v1/machines/${machineId}/sessions/${sessionId}`, { method: "PATCH", body: JSON.stringify({ enabled }) });
     },

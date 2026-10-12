@@ -27,23 +27,6 @@ export const Channel = Object.freeze({
   CSR: 305,
 } as const);
 
-export const DEFAULT_CHART_CHANNELS = Object.freeze([
-  Channel.FlowRate,
-  Channel.MaskPressureHigh,
-  Channel.Pressure,
-  Channel.IPAP,
-  Channel.EPAP,
-  Channel.Leak,
-  Channel.SpO2,
-  Channel.Pulse,
-  Channel.ObstructiveApnea,
-  Channel.Hypopnea,
-  Channel.UnclassifiedApnea,
-  Channel.RERA,
-  Channel.ClearAirway,
-  Channel.CSR,
-]);
-
 export const EVENT_CHANNELS = Object.freeze([
   Channel.ObstructiveApnea,
   Channel.Hypopnea,

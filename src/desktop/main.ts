@@ -11,6 +11,7 @@ import { createSystemVolumeProvider, RemovableMediaWatcher, type DetectedMedia }
 import { StructuredLogger } from "./logger.js";
 import { createDiagnosticBundle } from "./diagnostics.js";
 import { createDemoResMedCard } from "../demo/demo-card.js";
+import type { TherapyAnalysisPreferences } from "../core/therapy-analysis.js";
 
 const moduleDir = dirname(fileURLToPath(import.meta.url));
 
@@ -266,6 +267,30 @@ ipcMain.handle("daily:get", (_event: unknown, machineId: number, date: string) =
   const queries = new OscarQueries(requireDatabase());
   try { return queries.getDaily(machineId, date); }
   finally { queries.close(); }
+});
+
+ipcMain.handle("daily:getChannelAnalysis", (_event: unknown, machineId: number, date: string) => {
+  const queries = new OscarQueries(requireDatabase());
+  try { return queries.getDailyChannelAnalysis(machineId, date); }
+  finally { queries.close(); }
+});
+
+ipcMain.handle("analysis:getPreferences", (_event: unknown, machineId: number) => {
+  const db = new OscarDatabase(requireDatabase());
+  try { return db.getTherapyAnalysisPreferences(machineId); }
+  finally { db.close(); }
+});
+
+ipcMain.handle("analysis:setPreferences", (_event: unknown, machineId: number, preferences: TherapyAnalysisPreferences) => {
+  const db = new OscarDatabase(requireDatabase());
+  try { return db.setTherapyAnalysisPreferences(machineId, preferences); }
+  finally { db.close(); }
+});
+
+ipcMain.handle("graphs:setVisibility", (_event: unknown, machineId: number, visibility: Record<string, boolean>) => {
+  const db = new OscarDatabase(requireDatabase());
+  try { db.setGraphVisibility(machineId, visibility); }
+  finally { db.close(); }
 });
 
 ipcMain.handle("daily:setSessionEnabled", (_event: unknown, machineId: number, sessionId: number, enabled: boolean) => {

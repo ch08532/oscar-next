@@ -4,8 +4,9 @@ import { Session, SliceStatus } from "../core/session.js";
 import { EventListType } from "../core/event-list.js";
 import { MachineType, type MachineId, type MachineInfo, type SettingValue } from "../core/types.js";
 import { isValidIanaTimeZone, systemTimeZone } from "../core/device-time.js";
+import { parseTherapyAnalysisPreferences, validateTherapyAnalysisPreferences, type TherapyAnalysisPreferences } from "../core/therapy-analysis.js";
 
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 const WAVEFORM_CHUNK_MS = 60_000;
 
 type SqlPrimitive = string | number | bigint | Uint8Array | null;
@@ -88,6 +89,7 @@ export interface GraphPreference {
   pinned: boolean;
   sortOrder: number;
   height?: number;
+  visible?: boolean;
 }
 
 export interface GraphBookmark {
@@ -360,17 +362,40 @@ export class OscarDatabase {
 
   getGraphPreferences(machineId: MachineId): GraphPreference[] {
     const rows = this.#db.prepare(`
-      SELECT graph_key, pinned, sort_order, height
+      SELECT graph_key, pinned, sort_order, height, visible
       FROM graph_preferences
       WHERE machine_id = ?
       ORDER BY pinned DESC, sort_order, graph_key
-    `).all(machineId) as Array<{ graph_key: string; pinned: number; sort_order: number; height: number | null }>;
+    `).all(machineId) as Array<{ graph_key: string; pinned: number; sort_order: number; height: number | null; visible: number | null }>;
     return rows.map((row) => ({
       key: row.graph_key,
       pinned: row.pinned !== 0,
       sortOrder: row.sort_order,
       ...(row.height !== null ? { height: row.height } : {}),
+      ...(row.visible !== null ? { visible: row.visible !== 0 } : {}),
     }));
+  }
+
+  getTherapyAnalysisPreferences(machineId: MachineId): TherapyAnalysisPreferences {
+    const row = this.#db.prepare("SELECT value FROM app_settings WHERE key = ?").get(`therapy_analysis:${machineId}`) as { value: string } | undefined;
+    return parseTherapyAnalysisPreferences(row?.value);
+  }
+
+  setTherapyAnalysisPreferences(machineId: MachineId, preferences: TherapyAnalysisPreferences): TherapyAnalysisPreferences {
+    const value = validateTherapyAnalysisPreferences(preferences);
+    if (!this.#db.prepare("SELECT id FROM machines WHERE id = ?").get(machineId)) throw new Error("Machine not found");
+    this.#db.prepare("INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(`therapy_analysis:${machineId}`, JSON.stringify(value));
+    return value;
+  }
+
+  setGraphVisibility(machineId: MachineId, visibility: Readonly<Record<string, boolean>>): void {
+    if (!visibility || Array.isArray(visibility) || typeof visibility !== "object" || Object.entries(visibility).some(([key, value]) => !key.trim() || typeof value !== "boolean")) throw new TypeError("visibility must map graph keys to booleans");
+    this.#transaction(() => {
+      for (const [key, visible] of Object.entries(visibility)) {
+        this.#ensureGraphPreference(machineId, key);
+        this.#db.prepare("UPDATE graph_preferences SET visible = ? WHERE machine_id = ? AND graph_key = ?").run(visible ? 1 : 0, machineId, key);
+      }
+    });
   }
 
   #ensureGraphPreference(machineId: MachineId, key: string): { sortOrder: number } {
@@ -680,6 +705,7 @@ export class OscarDatabase {
         pinned INTEGER NOT NULL DEFAULT 0,
         sort_order INTEGER NOT NULL DEFAULT 0,
         height INTEGER,
+        visible INTEGER,
         PRIMARY KEY(machine_id, graph_key)
       );
 
@@ -719,6 +745,10 @@ export class OscarDatabase {
     }
     if (existingVersion < 2) this.#migrateWaveformChunks();
     if (!versionRow || existingVersion !== SCHEMA_VERSION) this.#transaction(() => {
+      if (existingVersion > 0 && existingVersion < 7) {
+        const columns = this.#db.prepare("PRAGMA table_info(graph_preferences)").all() as Array<{ name: string }>;
+        if (!columns.some(column => column.name === "visible")) this.#db.exec("ALTER TABLE graph_preferences ADD COLUMN visible INTEGER;");
+      }
       // The UNIQUE(session_row_id, channel_id, list_index) index already covers
       // this lookup prefix and the cascading session foreign key.
       if (existingVersion < 6) this.#db.exec("DROP INDEX IF EXISTS idx_event_lists_session_channel;");

@@ -1,4 +1,7 @@
 
+export type { DailyChannelAnalysis, DailyChannelStatistics, TherapyAnalysisPreferences } from "../../../src/core/therapy-analysis.js";
+import type { DailyChannelAnalysis, TherapyAnalysisPreferences } from "../../../src/core/therapy-analysis.js";
+
 export interface ProfileSummary {
   id: number;
   name: string;
@@ -191,6 +194,7 @@ export interface GraphPreference {
   pinned: boolean;
   sortOrder: number;
   height?: number;
+  visible?: boolean;
 }
 
 export interface GraphBookmark {
@@ -223,6 +227,10 @@ export interface OscarApi {
   getPendingDetectedMedia(): Promise<DetectedMedia | undefined>;
   onMediaDetected(callback: (detected: DetectedMedia) => void): () => void;
   getDaily(machineId: number, date: string): Promise<DailySummary>;
+  getDailyChannelAnalysis(machineId: number, date: string): Promise<DailyChannelAnalysis>;
+  getTherapyAnalysisPreferences(machineId: number): Promise<TherapyAnalysisPreferences>;
+  setTherapyAnalysisPreferences(machineId: number, preferences: TherapyAnalysisPreferences): Promise<TherapyAnalysisPreferences>;
+  setGraphVisibility(machineId: number, visibility: Record<string, boolean>): Promise<void>;
   setSessionEnabled(machineId: number, sessionId: number, enabled: boolean): Promise<void>;
   getGraphPreferences(machineId: number): Promise<GraphPreference[]>;
   setGraphPinned(machineId: number, key: string, pinned: boolean): Promise<void>;

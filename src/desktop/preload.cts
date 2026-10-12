@@ -32,6 +32,10 @@ contextBridge.exposeInMainWorld("oscar", {
     return () => ipcRenderer.removeListener("media:detected", listener);
   },
   getDaily: (machineId: number, date: string) => ipcRenderer.invoke("daily:get", machineId, date),
+  getDailyChannelAnalysis: (machineId: number, date: string) => ipcRenderer.invoke("daily:getChannelAnalysis", machineId, date),
+  getTherapyAnalysisPreferences: (machineId: number) => ipcRenderer.invoke("analysis:getPreferences", machineId),
+  setTherapyAnalysisPreferences: (machineId: number, preferences: { leakThreshold: number; showLeakThreshold: boolean }) => ipcRenderer.invoke("analysis:setPreferences", machineId, preferences),
+  setGraphVisibility: (machineId: number, visibility: Record<string, boolean>) => ipcRenderer.invoke("graphs:setVisibility", machineId, visibility),
   setSessionEnabled: (machineId: number, sessionId: number, enabled: boolean) => ipcRenderer.invoke("daily:setSessionEnabled", machineId, sessionId, enabled),
   getGraphPreferences: (machineId: number) => ipcRenderer.invoke("graphs:getPreferences", machineId),
   setGraphPinned: (machineId: number, key: string, pinned: boolean) => ipcRenderer.invoke("graphs:setPinned", machineId, key, pinned),

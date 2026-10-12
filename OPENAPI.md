@@ -24,6 +24,24 @@ npm run api -- --database .\oscar.sqlite --host 0.0.0.0
 
 The same token can also be supplied with `--token`.
 
+## Daily analysis and graph preferences
+
+Daily channel analysis is a separate on-demand query, so fetching the existing
+Daily summary or Overview does not calculate the additional channels. It returns
+registry labels/units, raw-sample count, recorded coverage, min/mean/median/p95/max,
+and optional leak threshold analysis. Quantiles use duration-weighted nearest
+rank over valid samples across included sessions; uniform intervals match the
+existing nearest-rank convention. Leak percentages use merged mask-on therapy
+time as their denominator and report recorded coverage separately. The `leak`
+field is absent when readings are missing.
+
+`PUT .../analysis-preferences` accepts `{ "leakThreshold": 24,
+"showLeakThreshold": true }` (threshold range 0–1000 L/min). Preferences persist
+per machine in the database. `PUT .../graphs/visibility` accepts
+`{ "visibility": { "flow": true, "respiratory-rate": false } }`; only supplied
+keys change, atomically, without resetting other layout preferences. Existing
+authentication requirements apply to all these endpoints.
+
 ## File-system imports
 
 REST imports are disabled by default because they accept paths on the API host. Enable them explicitly:
@@ -45,6 +63,9 @@ Then the following endpoints become available:
 | Profiles | list, create, update |
 | Machines | list by profile, read/update timezone handling |
 | Daily | therapy-night summary and session list |
+| Daily channel analysis | `GET /api/v1/machines/{machineId}/daily/{date}/channel-analysis` |
+| Therapy analysis preferences | `GET/PUT /api/v1/machines/{machineId}/analysis-preferences` |
+| Graph visibility | `PUT /api/v1/machines/{machineId}/graphs/visibility` |
 | Overview | date-range trend data |
 | Therapy history | lightweight timeline availability and usage, without waveform/event reads |
 | Statistics | date-range aggregate statistics |

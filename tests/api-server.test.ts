@@ -10,6 +10,8 @@ import { CpapChannel } from "../src/core/cpap-channels.js";
 import { MachineType } from "../src/core/types.js";
 import { OscarDatabase } from "../src/storage/database.js";
 import { openApiDocument, startOscarApiServer } from "../src/api/server.js";
+import { OscarQueries } from "../src/storage/queries.js";
+import { createRestOscarApi } from "../apps/desktop/src/rest-adapter.js";
 
 async function makeApiDatabase(path: string): Promise<void> {
   const db = new OscarDatabase(path);
@@ -21,6 +23,7 @@ async function makeApiDatabase(path: string): Promise<void> {
   session.addSlice({ start: first, end: first + 2 * 3_600_000, status: SliceStatus.MaskOn });
   const pressure = session.addEventList(CpapChannel.Pressure, EventListType.Waveform, { gain: 0.1, rateMs: 60_000, dimension: "cmH2O" });
   pressure.addWaveform(first, Int16Array.from([80, 90, 100]), 180_000);
+  session.addEventList(CpapChannel.Leak, EventListType.Waveform, { rateMs: 60_000, dimension: "L/min" }).addWaveform(first, Int16Array.from([0, 24, 30, 40]), 240_000);
   const oa = session.addEventList(CpapChannel.ObstructiveApnea, EventListType.Event, { gain: 1, secondField: true, dimension: "event" });
   oa.addEvent(first + 60_000, 1, 10);
   machine.addSession(session);
@@ -197,6 +200,44 @@ test("headless demo endpoint creates a profile and imports synthetic therapy dat
     await api.close();
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test("Daily analysis REST adapter matches shared queries, persists preferences and validates authenticated writes", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "oscar-analysis-api-")), path = join(dir, "synthetic.sqlite");
+  await makeApiDatabase(path);
+  const server = await startOscarApiServer({ databasePath: path, port: 0, token: "synthetic-analysis-token" });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (input, init) => originalFetch(typeof input === "string" && input.startsWith("/") ? `${server.baseUrl}${input}` : input, init);
+  const api = createRestOscarApi("synthetic-analysis-token");
+  const analysisPath = `${server.baseUrl}/api/v1/machines/2100/daily/2026-10-09/channel-analysis`;
+  const preferencesPath = `${server.baseUrl}/api/v1/machines/2100/analysis-preferences`;
+  const headers = { authorization: "Bearer synthetic-analysis-token", "content-type": "application/json" };
+  try {
+    assert.equal((await originalFetch(analysisPath)).status, 401);
+    assert.deepEqual(await api.getTherapyAnalysisPreferences(2100), { leakThreshold: 24, showLeakThreshold: true });
+    let queries = new OscarQueries(path);
+    try { assert.deepEqual(await api.getDailyChannelAnalysis(2100, "2026-10-09"), queries.getDailyChannelAnalysis(2100, "2026-10-09")); } finally { queries.close(); }
+    await api.setTherapyAnalysisPreferences(2100, { leakThreshold: 35, showLeakThreshold: false });
+    assert.equal((await api.getDailyChannelAnalysis(2100, "2026-10-09")).leak?.secondsAboveThreshold, 60);
+    await api.setGraphVisibility(2100, { flow: false, "respiratory-rate": true });
+    assert.equal((await api.getGraphPreferences(2100)).find(item => item.key === "flow")?.visible, false);
+    assert.deepEqual(await api.getTherapyAnalysisPreferences(2100), { leakThreshold: 35, showLeakThreshold: false });
+    for (const leakThreshold of [-1, 1001, "24", null]) {
+      assert.equal((await originalFetch(preferencesPath, { method: "PUT", headers, body: JSON.stringify({ leakThreshold, showLeakThreshold: true }) })).status, 400);
+    }
+    assert.equal((await originalFetch(preferencesPath, { method: "PUT", headers, body: JSON.stringify({ leakThreshold: 24, showLeakThreshold: "true" }) })).status, 400);
+    for (const visibility of [null, [], { flow: "false" }, { " ": true }]) {
+      assert.equal((await originalFetch(`${server.baseUrl}/api/v1/machines/2100/graphs/visibility`, { method: "PUT", headers, body: JSON.stringify({ visibility }) })).status, 400);
+    }
+    assert.equal((await originalFetch(analysisPath.replace("2026-10-09", "2026-02-30"), { headers })).status, 400);
+    await api.setSessionEnabled(2100, 21001, false);
+    const empty = await api.getDailyChannelAnalysis(2100, "2026-10-09");
+    assert.deepEqual(empty.channels, []); assert.equal(empty.leak, undefined); assert.equal(empty.therapySeconds, 0);
+    queries = new OscarQueries(path); try { assert.deepEqual(empty, queries.getDailyChannelAnalysis(2100, "2026-10-09")); } finally { queries.close(); }
+    assert.ok(openApiDocument.paths["/api/v1/machines/{machineId}/daily/{date}/channel-analysis"]);
+    assert.ok(openApiDocument.paths["/api/v1/machines/{machineId}/analysis-preferences"]);
+    assert.ok(openApiDocument.paths["/api/v1/machines/{machineId}/graphs/visibility"]);
+  } finally { globalThis.fetch = originalFetch; await server.close(); await rm(dir, { recursive: true, force: true }); }
 });
 
 test("automatic media import requires both imports and media watching", async () => {

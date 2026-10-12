@@ -1,4 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
+import { queryDailyChannelAnalysis } from "./daily-analysis.js";
+import type { DailyChannelAnalysis } from "../core/therapy-analysis.js";
 import { CpapChannel } from "../core/cpap-channels.js";
 import { CpapSetting, isSummaryMetricSetting } from "../core/cpap-settings.js";
 import { EventListType } from "../core/event-list.js";
@@ -286,6 +288,11 @@ export class OscarQueries {
 
   close(): void { this.#db.close(); }
 
+  getDailyChannelAnalysis(machineId: MachineId, date: string): DailyChannelAnalysis {
+    const range = therapyDayRange(date, this.rolloverHour);
+    return queryDailyChannelAnalysis(this.#db, machineId, date, range.startMs, range.endMs);
+  }
+
   getDaily(machineId: MachineId, date: string): DailySummary {
     const range = therapyDayRange(date, this.rolloverHour);
     const sessions = this.#sessionRows(machineId, range.startMs, range.endMs);
@@ -336,7 +343,7 @@ export class OscarQueries {
       obstructive: perHour(subtypeWeighted.obstructive), clearAirway: perHour(subtypeWeighted.clearAirway),
       hypopnea: perHour(subtypeWeighted.hypopnea), unclassified: perHour(subtypeWeighted.unclassified), rera: perHour(subtypeWeighted.rera),
     };
-    const availableChannels = this.#availableChannels(enabled);
+    const availableChannels = this.#availableChannels(enabled.filter(session => session.summary_only === 0), range.startMs, range.endMs);
 
     const pressure = this.#channelStatistics(enabled, CpapChannel.Pressure, range.startMs, range.endMs);
     const leak = this.#channelStatistics(enabled, CpapChannel.Leak, range.startMs, range.endMs);
@@ -786,7 +793,7 @@ export class OscarQueries {
     return history;
   }
 
-  #availableChannels(sessions: readonly SessionRow[]): ChannelId[] {
+  #availableChannels(sessions: readonly SessionRow[], startMs: number, endMs: number): ChannelId[] {
     if (sessions.length === 0) return [];
     const rowIds = sessions.map((session) => session.row_id);
     const placeholders = rowIds.map(() => "?").join(",");
@@ -794,8 +801,9 @@ export class OscarQueries {
       SELECT DISTINCT channel_id
       FROM event_lists
       WHERE session_row_id IN (${placeholders})
+        AND first_ms < ? AND (first_ms + duration_ms > ? OR (list_type = 'event' AND first_ms + duration_ms = ?))
       ORDER BY channel_id
-    `).all(...rowIds) as Array<{ channel_id: number }>;
+    `).all(...rowIds, endMs, startMs, startMs) as Array<{ channel_id: number }>;
     return rows.map((row) => row.channel_id);
   }
 }
