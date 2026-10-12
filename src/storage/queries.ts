@@ -315,9 +315,9 @@ export class OscarQueries {
       unclassified: this.#countEvents(enabled, CpapChannel.UnclassifiedApnea, range.startMs, range.endMs),
       rera: this.#countEvents(enabled, CpapChannel.RERA, range.startMs, range.endMs),
     };
-    // Detailed EDF nights use exact event counts. STR-only nights expose per-hour
-    // indices instead; combine both by therapy-hour weighting so backups with
-    // only STR summary data still report meaningful AHI/subtype indices.
+    // Prefer detailed event counts. Waveforms alone do not establish event-data
+    // availability: backups can contain BRP/PLD and STR but omit EVE records.
+    // Combine STR fallback indices with exact counts by therapy-hour weighting.
     let ahiWeightedEvents = eventCounts.obstructive + eventCounts.clearAirway + eventCounts.hypopnea + eventCounts.unclassified;
     let rdiWeightedEvents = ahiWeightedEvents + eventCounts.rera;
     const subtypeWeighted = {
@@ -325,7 +325,7 @@ export class OscarQueries {
       unclassified: eventCounts.unclassified, rera: eventCounts.rera,
     };
     for (const session of enabled) {
-      if (session.summary_only === 0) continue;
+      if (session.summary_only === 0 && this.#hasRespiratoryEvents(session.row_id)) continue;
       const hours = this.#usageMs(session, range.startMs, range.endMs) / HOUR_MS;
       if (hours <= 0) continue;
       const settings = this.#settings(session.row_id);
@@ -703,6 +703,17 @@ export class OscarQueries {
       }
     }
     return count;
+  }
+
+  #hasRespiratoryEvents(sessionRowId: number): boolean {
+    // Inspect the whole session so a noon-crossing session does not fall back
+    // to STR just because its detailed events fall outside the selected day.
+    return this.#db.prepare(`
+      SELECT 1 FROM event_lists WHERE session_row_id = ?
+        AND channel_id IN (?, ?, ?, ?, ?) AND list_type = ?
+        AND length(time_deltas_blob) > 0 LIMIT 1
+    `).get(sessionRowId, CpapChannel.ObstructiveApnea, CpapChannel.ClearAirway,
+      CpapChannel.Hypopnea, CpapChannel.UnclassifiedApnea, CpapChannel.RERA, EventListType.Event) !== undefined;
   }
 
   #channelStatistics(sessions: readonly SessionRow[], channelId: ChannelId, startMs: number, endMs: number): ChannelStatistics | undefined {

@@ -45,6 +45,54 @@ test("therapy day uses noon-to-noon rollover", () => {
   assert.equal(therapyDateForTimestamp(Date.parse("2026-10-10T13:00:00Z")), "2026-10-10");
 });
 
+test("waveform nights without detailed events use stored STR indices without fabricating event counts", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "oscar-summary-with-waveforms-"));
+  const path = join(dir, "synthetic.sqlite");
+  const db = new OscarDatabase(path);
+  try {
+    const machine = new Machine(71, { type: MachineType.CPAP, brand: "Synthetic", serial: "SYNTHETIC-71" });
+    const first = Date.parse("2026-10-09T22:00:00Z");
+    addNight(machine, 1, first, first + 2 * 3_600_000, { oa: 0, ca: 0, h: 0, rera: 0 }, [8, 9], [1, 2]);
+    const session = machine.sessions.get(1)!;
+    session.settings.set(CpapSetting.SummaryAHI, 6);
+    session.settings.set(CpapSetting.SummaryOAI, 2);
+    session.settings.set(CpapSetting.SummaryCAI, 1);
+    session.settings.set(CpapSetting.SummaryHI, 3);
+    db.saveMachine(machine);
+    const queries = new OscarQueries(path);
+    try {
+      const daily = queries.getDaily(71, "2026-10-09");
+      assert.equal(daily.sessions[0]?.summaryOnly, false);
+      assert.equal(daily.ahi, 6); assert.equal(daily.rdi, 6);
+      assert.deepEqual(daily.eventIndices, { obstructive: 2, clearAirway: 1, hypopnea: 3, unclassified: 0, rera: 0 });
+      assert.deepEqual(daily.eventCounts, { obstructive: 0, clearAirway: 0, hypopnea: 0, unclassified: 0, rera: 0 });
+      assert.equal(queries.getOverview(71, "2026-10-09", "2026-10-09")[0]?.ahi, 6);
+      assert.equal(queries.getStatistics(71, "2026-10-09", "2026-10-09").ahi, 6);
+      db.setSessionEnabled(71, 1, false);
+      assert.equal(queries.getDaily(71, "2026-10-09").ahi, 0);
+    } finally { queries.close(); }
+  } finally { db.close(); await rm(dir, { recursive: true, force: true }); }
+});
+
+test("detailed events retain precedence over STR even across a noon boundary", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "oscar-summary-event-precedence-"));
+  const path = join(dir, "synthetic.sqlite");
+  const db = new OscarDatabase(path);
+  try {
+    const machine = new Machine(72, { type: MachineType.CPAP, brand: "Synthetic", serial: "SYNTHETIC-72" });
+    const first = Date.parse("2026-10-10T11:00:00Z");
+    addNight(machine, 1, first, first + 2 * 3_600_000, { oa: 1, ca: 0, h: 0, rera: 0 }, [8], [1]);
+    machine.sessions.get(1)!.settings.set(CpapSetting.SummaryAHI, 9);
+    db.saveMachine(machine);
+    const queries = new OscarQueries(path);
+    try {
+      assert.equal(queries.getDaily(72, "2026-10-09").ahi, 1);
+      // The event belongs to the previous day; do not substitute a summary here.
+      assert.equal(queries.getDaily(72, "2026-10-10").ahi, 0);
+    } finally { queries.close(); }
+  } finally { db.close(); await rm(dir, { recursive: true, force: true }); }
+});
+
 test("Daily query returns usage, AHI/RDI, event counts, settings, statistics and channels", async () => {
   const dir = await mkdtemp(join(tmpdir(), "oscar-next-query-"));
   const path = join(dir, "oscar.sqlite");

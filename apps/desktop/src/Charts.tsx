@@ -1,5 +1,5 @@
 import { Pin, GripVertical, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { Channel, EVENT_CHANNELS } from "./channels";
 import type { ChartQueryResult, ChartSeries, DailySummary, GraphBookmark, GraphPreference } from "./types";
 import { channelStatistics, countEvents, eventsNearCursor, hasSamplesInViewport, lowerBound, nearestPoint, statistics, therapyWindowEventSummary, valuesInViewport } from "./chart-analysis";
@@ -232,6 +232,7 @@ interface InteractionProps {
 
 function useGraphInteractions(props: InteractionProps, plotLeft = 64, plotRight = 12) {
   const drag = useRef<{ x: number; viewport: Viewport } | undefined>(undefined);
+  const interactionRef = useRef<HTMLDivElement>(null);
 
   function timeAt(clientX: number, element: HTMLElement): number {
     const rect = element.getBoundingClientRect();
@@ -240,16 +241,24 @@ function useGraphInteractions(props: InteractionProps, plotLeft = 64, plotRight 
     return props.viewport.startMs + fraction * (props.viewport.endMs - props.viewport.startMs);
   }
 
-  function onWheel(event: ReactWheelEvent<HTMLElement>) {
-    event.preventDefault();
-    const pivot = timeAt(event.clientX, event.currentTarget);
-    const currentDuration = props.viewport.endMs - props.viewport.startMs;
-    const factor = event.deltaY < 0 ? 0.78 : 1.28;
-    const duration = currentDuration * factor;
-    const fraction = (pivot - props.viewport.startMs) / Math.max(1, currentDuration);
-    const candidate = { startMs: pivot - duration * fraction, endMs: pivot + duration * (1 - fraction) };
-    props.setViewport(clampViewport(candidate, props.bounds));
-  }
+  useEffect(() => {
+    const element = interactionRef.current;
+    if (!element) return;
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      if (event.deltaY === 0) return;
+      const pivot = timeAt(event.clientX, element);
+      const currentDuration = props.viewport.endMs - props.viewport.startMs;
+      const factor = event.deltaY < 0 ? 0.78 : 1.28;
+      const duration = currentDuration * factor;
+      const fraction = (pivot - props.viewport.startMs) / Math.max(1, currentDuration);
+      const candidate = { startMs: pivot - duration * fraction, endMs: pivot + duration * (1 - fraction) };
+      props.setViewport(clampViewport(candidate, props.bounds));
+    };
+    // React's passive wheel listener cannot cancel the browser's page scrolling.
+    element.addEventListener("wheel", onWheel, { passive: false });
+    return () => element.removeEventListener("wheel", onWheel);
+  }, [props.viewport, props.bounds, props.setViewport, plotLeft, plotRight]);
 
   function onPointerDown(event: ReactPointerEvent<HTMLElement>) {
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -272,7 +281,7 @@ function useGraphInteractions(props: InteractionProps, plotLeft = 64, plotRight 
   }
 
   return {
-    onWheel,
+    ref: interactionRef,
     onPointerDown,
     onPointerMove,
     onPointerUp,

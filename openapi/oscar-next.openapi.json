@@ -2363,6 +2363,7 @@
       },
       "DailySummary": {
         "type": "object",
+        "description": "Therapy-day summary. Respiratory indices use detailed events when present; sessions without detailed respiratory events use stored STR rates weighted by included therapy hours, even when waveforms are available. Event counts contain detailed records only; STR does not provide RERA rates.",
         "required": [
           "machineId",
           "date",

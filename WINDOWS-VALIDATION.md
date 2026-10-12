@@ -1,5 +1,44 @@
 # OSCAR Next 2.3.0 Windows validation — 2026-10-10
 
+## Respiratory-index fallback follow-up — 2026-10-12
+
+- A read-only check of the default desktop database confirmed that the reported
+  night has waveform data and positive stored STR summary AHI but no detailed
+  respiratory event lists. No database, device identifiers, profiles, or therapy
+  payloads were copied into repository artifacts; the database was not modified.
+- Root cause: STR fallback was restricted to `summary_only` sessions, although
+  waveform availability does not imply EVE event availability. Fallback now
+  applies to sessions without detailed respiratory events. Whole-session event
+  presence preserves exact-count precedence across noon. Counts and chart event
+  records remain unchanged; summary rates do not fabricate detailed events.
+- Night Inspector explains summary-based positive AHI and shows unavailable
+  summary RERA as a dash. README/OpenAPI describe the fallback behavior.
+- Baseline `npm run verify`: PASS, 156 tests and smoke. A new synthetic regression
+  failed with `0 !== 6` before the fix and passes afterward. Final verification:
+  PASS, 159 tests and smoke, including Daily/Overview/Statistics parity,
+  exclusions, noon-boundary precedence and a REST integration regression.
+  Desktop/headless builds, renderer TypeScript check and `git diff --check`: PASS.
+- Rechecked the reported night using the rebuilt read-only query: positive AHI
+  is returned without inventing event counts. No re-import is required.
+  Visual confirmation of the inspector message and physical/Pi validation
+  remain manual checks.
+
+## Chart wheel zoom follow-up — 2026-10-12
+
+- Root cause: React's delegated wheel listener is passive, so the chart's
+  `preventDefault()` could not cancel page scrolling. The shared graph
+  interaction hook now attaches a native non-passive listener to each plot
+  container and removes it on cleanup. Pointer-centered zoom is preserved;
+  zero vertical delta does not change the zoom.
+- Baseline `npm run verify`: PASS, 156 tests and synthetic smoke.
+  Final `npm test`, desktop/headless builds and renderer TypeScript check: PASS.
+- `node .validation/check-chart-wheel.mjs`: the default-cancellation assertion
+  failed before the fix and passes afterward for waveform and Event Flags
+  plots, zooming in/out and at the full-range boundary. Shared viewport updates
+  and ancestor scroll positions are checked in Chromium with synthetic data.
+  These are dispatched DOM wheel events; physical mouse/trackpad validation
+  remains a manual acceptance check.
+
 ## Scrollbar styling follow-up — 2026-10-12
 
 - Shared renderer now uses 6px scrollbars with transparent tracks, rounded

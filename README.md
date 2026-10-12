@@ -151,7 +151,7 @@ Implemented:
   - SmartStart, mask, climate, humidifier, temperature, tube, filter and patient-access settings when present
   - summary-only sessions when STR has a therapy window but detailed EDF data is absent
   - STR summary AHI/AI/HI/OAI/CAI/UAI/CSR and leak-summary fields captured without polluting therapy-setting history
-  - STR-only nights contribute weighted AHI/RDI and OA/CA/H/UA event indices to Daily, Overview and Statistics even when detailed EVE files are absent
+  - STR summary indices contribute weighted AHI/RDI and OA/CA/H/UA rates to Daily, Overview and Statistics when detailed respiratory event records are absent, including nights with waveforms; detailed event counts remain authoritative when present
 - ResMed detailed-session mapper:
   - detailed EDFs are attached to the best-overlapping STR session without changing authoritative STR bounds
   - fallback session creation from BRP/PLD/SAD/SA2 when STR mask windows are unavailable
@@ -202,7 +202,7 @@ Implemented:
   - session table
   - Canvas-based Flow Rate, Pressure, Leak, SpO₂, Pulse, and Event Flags graphs
   - one shared time viewport across all graphs
-  - mouse-wheel zoom around the pointer, drag-to-pan, and double-click/reset zoom
+  - mouse-wheel zoom around the pointer without scrolling the page, drag-to-pan, and double-click/reset zoom
   - synchronized cursor across every graph without redrawing the underlying high-rate waveforms
   - per-pixel min/max downsampling for dense full-night waveforms
   - full-night graph loads request a bounded adaptive series instead of transferring every 25 Hz sample

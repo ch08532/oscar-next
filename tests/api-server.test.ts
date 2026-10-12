@@ -7,6 +7,7 @@ import { Machine } from "../src/core/machine.js";
 import { Session, SliceStatus } from "../src/core/session.js";
 import { EventListType } from "../src/core/event-list.js";
 import { CpapChannel } from "../src/core/cpap-channels.js";
+import { CpapSetting } from "../src/core/cpap-settings.js";
 import { MachineType } from "../src/core/types.js";
 import { OscarDatabase } from "../src/storage/database.js";
 import { openApiDocument, startOscarApiServer } from "../src/api/server.js";
@@ -41,6 +42,27 @@ test("OpenAPI contract exposes core OSCAR Next resources", () => {
   assert.ok(openApiDocument.paths["/api/v1/active-profile"]);
   assert.ok(openApiDocument.paths["/api/v1/diagnostics"]);
   assert.ok(openApiDocument.paths["/api/v1/machines/{machineId}/therapy-history"]);
+});
+
+test("REST returns STR indices for waveform sessions without detailed event records", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "oscar-api-summary-fallback-"));
+  const path = join(dir, "synthetic.sqlite");
+  const db = new OscarDatabase(path);
+  const machine = new Machine(73, { type: MachineType.CPAP, brand: "Synthetic", serial: "SYNTHETIC-73" });
+  const first = Date.parse("2026-10-09T22:00:00Z");
+  const session = new Session(1, MachineType.CPAP);
+  session.setBounds(first, first + 3_600_000);
+  session.settings.set(CpapSetting.SummaryAHI, 4);
+  session.settings.set(CpapSetting.SummaryHI, 4);
+  session.addEventList(CpapChannel.Pressure, EventListType.Waveform, { rateMs: 60_000 }).addWaveform(first, Int16Array.of(8), 60_000);
+  machine.addSession(session); db.saveMachine(machine); db.close();
+  const api = await startOscarApiServer({ databasePath: path, port: 0 });
+  try {
+    const response = await fetch(`${api.baseUrl}/api/v1/machines/73/daily/2026-10-09`);
+    assert.equal(response.status, 200);
+    const daily = await response.json() as { ahi: number; eventIndices: { hypopnea: number }; eventCounts: { hypopnea: number } };
+    assert.equal(daily.ahi, 4); assert.equal(daily.eventIndices.hypopnea, 4); assert.equal(daily.eventCounts.hypopnea, 0);
+  } finally { await api.close(); await rm(dir, { recursive: true, force: true }); }
 });
 
 test("REST API serves Swagger/OpenAPI and reuses Daily/chart/database logic", async () => {

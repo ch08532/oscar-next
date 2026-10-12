@@ -2,6 +2,13 @@
 
 OSCAR Next 2.3 provides a local-first HTTP API over the same storage/query services used by Electron.
 
+Daily respiratory indices prefer detailed event records. When a session lacks
+detailed respiratory events, stored STR summary rates contribute by included
+therapy-hour weighting, including sessions that contain waveforms. Overview and
+Statistics reuse these rates. Event counts remain counts of detailed records;
+summary rates never fabricate events or timestamps. STR has no reliable RERA
+rate. Detailed events anywhere in a session retain precedence across noon.
+
 ## Start the API
 
 ```powershell
