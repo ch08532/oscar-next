@@ -325,7 +325,8 @@ button.secondary { background: var(--surface); color: var(--accent); border: 1px
 .import-button { display:flex; align-items:center; gap:6px; white-space:nowrap; }
 .icon-button { display:inline-grid; place-items:center; width:30px; height:30px; min-width:30px; padding:0; background:transparent; color:var(--muted); border:1px solid transparent; border-radius:6px; }
 .icon-button:hover { background:var(--surface-alt); color:var(--text); }
-.header-menu { position:relative; }
+/* Keep the dropdown above the later, positioned history card within the header. */
+.header-menu { position:relative; z-index:1; }
 .header-menu summary { display:grid; place-items:center; list-style:none; cursor:pointer; width:30px; height:30px; color:var(--muted); }
 .header-menu summary::-webkit-details-marker { display:none; }
 .header-menu>div { position:absolute; top:36px; right:0; width:180px; display:grid; padding:5px; border:1px solid var(--border); border-radius:8px; background:var(--surface); box-shadow:0 8px 24px #0003; }

@@ -168,3 +168,34 @@ a Lucide spinner above the visible text `Calculating…`, announced as a status.
 The indicator respects reduced-motion preferences. Loading/data behavior and
 sticky date filters remain unchanged. Renderer TypeScript, desktop/headless
 builds, and all 133 tests pass.
+
+## Three-dot menu stacking fix
+
+The positioned history card painted over the dropdown because the menu had no
+explicit stacking level. Before the fix, hit-testing on Overview found the
+1-year preset, timeline SVG, and history axis covering three menu actions.
+A local `z-index: 1` on the positioned menu now places it above the history card
+within the header's stacking context, preserving higher modal/drawer layers.
+
+Synthetic Electron checks passed at 1440px and 1024px on Daily, Overview, and
+Statistics, before and after scrolling, with modal drawers dismissed: all four
+menu actions win hit-testing. A real pointer click on the formerly covered
+Diagnostics action navigates and dismisses the menu. All 133 tests and both
+renderer builds pass.
+
+## Daily empty-day message
+
+Daily previously rendered its normal zero-filled metrics, graphs, and inspector
+when the selected date had no imported sessions. It now shows an explicit
+empty-day message with the selected date and a Go to latest night action.
+The date arrows and date input remain available. Only an empty session list
+triggers this message; summary-only and excluded sessions retain the normal UI.
+
+An Electron regression check using synthetic data failed before the change and
+passed afterward: navigating past the latest night displays the message and
+hides metrics, graphs, and the inspector; the recovery button and previous-day
+arrow restore populated nights. Detailed and STR-only nights remain visible.
+Excluding every session retains the controls needed to re-enable them; the
+check restored those synthetic sessions afterward. All 133 tests, renderer
+TypeScript, and desktop/headless renderer builds pass. Browser runtime and
+real-card validation were not repeated for this shared-renderer change.

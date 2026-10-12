@@ -196,6 +196,7 @@ Implemented:
   - preload API instead of direct React filesystem/SQLite access
   - database file picker and machine selection
   - read-only Daily screen
+  - dates with no imported sessions show a clear empty-day message and a shortcut to the latest night instead of zero-filled Daily metrics and graphs
   - usage, AHI/RDI, event counts, pressure/leak 95th-percentile cards
   - session table
   - Canvas-based Flow Rate, Pressure, Leak, SpO₂, Pulse, and Event Flags graphs

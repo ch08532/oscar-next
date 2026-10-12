@@ -285,7 +285,12 @@ export function App({ deployment = "desktop" }: { deployment?: "desktop" | "brow
         {(view === "daily" || view === "sessions") && machineId !== undefined && <>
           {loading && <div className="loading-skeleton" role="status" aria-label="Loading therapy data"><span /><span /><span /></div>}
           {daily && view === "sessions" && <><div className="mb-4"><h2 className="text-lg font-semibold">Sessions · {daily.date}</h2><p className="mt-1 text-sm text-[var(--muted)]">{machine?.brand} {machine?.model} · Device wall-clock time ({daily.deviceTimeZone})</p></div><Card className="panel"><SessionsTable daily={daily} onToggle={(id, enabled) => void setSessionEnabled(id, enabled)} /></Card></>}
-          {daily && view === "daily" && <>
+          {daily && view === "daily" && daily.sessions.length === 0 && <section className="empty" aria-labelledby="daily-empty-title" role="status">
+            <h2 id="daily-empty-title">No therapy data for this day</h2>
+            <p>No sessions have been imported for {daily.date} on this device. Choose another date or import your CPAP data.</p>
+            <div className="empty-actions"><button className="secondary" disabled={machine?.lastSessionTime === undefined} onClick={() => { if (machine?.lastSessionTime !== undefined) setDate(therapyDateForTimestamp(machine.lastSessionTime)); }}>Go to latest night</button></div>
+          </section>}
+          {daily && view === "daily" && daily.sessions.length > 0 && <>
             <section className="metrics daily-metrics" aria-label="Night metrics">
               <MetricCard label="Usage" value={`${Math.floor(Math.round(daily.usageHours * 60) / 60)}h ${Math.round(daily.usageHours * 60) % 60}m`} detail={`${daily.sessions.filter(session => session.enabled !== false).length} included sessions`} />
               <MetricCard label="AHI" value={daily.ahi.toFixed(2)} detail="Events / therapy hour" />
