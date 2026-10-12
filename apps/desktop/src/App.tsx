@@ -10,10 +10,8 @@ import { Sidebar, type AppView } from "./components/Sidebar";
 import { NightInspector, type GraphNavigation } from "./components/NightInspector";
 import { SessionsTable } from "./components/SessionsTable";
 import { AdminPages } from "./components/AdminPages";
-import { Card, MetricCard } from "./ui";
+import { Card } from "./ui";
 import { useTheme } from "./theme";
-import { Channel } from "./channels";
-import { EVENT_PRESENTATION } from "./event-presentation";
 import { dateAtOffset } from "./overview-date-range";
 import { ChevronLeft, ChevronRight, Download, Moon, Sun, PanelRightOpen, CalendarDays } from "lucide-react";
 import type {
@@ -265,6 +263,7 @@ export function App({ deployment = "desktop" }: { deployment?: "desktop" | "brow
   }, [machineId, date, view, dataRevision]);
 
   const needsSetup = setup?.needsSetup === true;
+  const showInspector = inspectorOpen && view === "daily" && daily !== undefined && daily.sessions.length > 0 && machineId !== undefined;
 
   return <div className={`app-shell grid min-h-screen max-[1150px]:grid-cols-[72px_minmax(0,1fr)] ${sidebarCollapsed ? "sidebar-compact grid-cols-[72px_minmax(0,1fr)]" : "grid-cols-[228px_minmax(0,1fr)]"}`}>
     <a href="#workspace" className="skip-link">Skip to workspace</a>
@@ -278,12 +277,13 @@ export function App({ deployment = "desktop" }: { deployment?: "desktop" | "brow
           {database && <label className="machine-select"><span className="sr-only">Machine</span><select value={machineId ?? ""} aria-label="Machine" onChange={event => selectMachine(Number(event.target.value))}>{machines.length === 0 && <option value="">No devices</option>}{machines.map(item => <option key={item.id} value={item.id}>{item.brand} {item.model}</option>)}</select></label>}
           <button className="import-button" onClick={chooseImportSource}><Download size={15} /><span>Import Data</span></button>
           <button className="icon-button" title="Toggle light/dark theme" aria-label="Toggle light/dark theme" onClick={() => setTheme(document.documentElement.classList.contains("dark") ? "light" : "dark")}>{theme === "light" ? <Moon size={17} /> : <Sun size={17} />}</button>
-          {view === "daily" && <button className="icon-button" aria-label={inspectorOpen ? "Hide Night Inspector" : "Show Night Inspector"} aria-expanded={inspectorOpen} onClick={() => setInspectorOpen(!inspectorOpen)} title="Night Inspector"><PanelRightOpen size={17} /></button>}
+          {view === "daily" && <button className="icon-button" aria-label={showInspector ? "Hide Night Inspector" : "Show Night Inspector"} aria-expanded={showInspector} aria-controls="night-inspector" disabled={!daily?.sessions.length} onClick={() => setInspectorOpen(!inspectorOpen)} title="Night Inspector"><PanelRightOpen size={17} /></button>}
           <TopBarActions><button onClick={openDatabase}>{database ? "Change database" : "Open database"}</button><button disabled={importing} onClick={() => void loadDemoData()}>Load demo data</button><button onClick={() => setView("profiles")}>Profiles & time</button><button onClick={() => setView("diagnostics")}>Diagnostics</button></TopBarActions>
         </div>
         </div>
         {(view === "overview" || view === "statistics") && <div ref={setHistoryToolbar} className="history-toolbar w-full min-w-0 border-t border-[var(--border)] px-5 pt-2 pb-3 max-[1150px]:px-3.5" />}
       </header>
+      <div className={`workspace-body ${showInspector ? "with-inspector" : ""}`}>
       <main id="workspace" className="workspace-content min-w-0 px-5 pt-[18px] pb-10 max-[1150px]:p-3.5" tabIndex={-1}>
         {notice && <div className="notice" role="status">{notice}</div>}
         {error && <div className="error" role="alert">{error}</div>}
@@ -298,21 +298,8 @@ export function App({ deployment = "desktop" }: { deployment?: "desktop" | "brow
             <div className="empty-actions"><button className="secondary" disabled={machine?.lastSessionTime === undefined} onClick={() => { if (machine?.lastSessionTime !== undefined) setDate(therapyDateForTimestamp(machine.lastSessionTime)); }}>Go to latest night</button></div>
           </section>}
           {daily && view === "daily" && daily.sessions.length > 0 && <>
-            <section className="metrics daily-metrics" aria-label="Night metrics">
-              <MetricCard label="Usage" value={`${Math.floor(Math.round(daily.usageHours * 60) / 60)}h ${Math.round(daily.usageHours * 60) % 60}m`} detail={`${daily.sessions.filter(session => session.enabled !== false).length} included sessions`} />
-              <MetricCard label="AHI" value={daily.ahi.toFixed(2)} detail="Events / therapy hour" />
-              <MetricCard label="RDI" value={daily.rdi.toFixed(2)} detail="Respiratory disturbances / h" />
-              <MetricCard label="Pressure 95%" value={daily.pressure?.percentile95.toFixed(1) ?? "—"} unit={daily.pressure ? "cmH₂O" : undefined} detail="Selected therapy night" />
-              <MetricCard label="Leak 95%" value={daily.leak?.percentile95.toFixed(1) ?? "—"} unit={daily.leak ? "L/min" : undefined} detail="Selected therapy night" />
-            </section>
-            <div className="daily-event-bar"><span className="text-xs font-medium text-[var(--muted)]">{daily.sessions.some(session => session.enabled !== false && session.summaryOnly) ? "EVENT INDICES / H" : "EVENTS"}</span>{[Channel.ObstructiveApnea, Channel.ClearAirway, Channel.Hypopnea, Channel.UnclassifiedApnea, Channel.RERA].map((channel, index) => {
-              const summary = daily.sessions.some(session => session.enabled !== false && session.summaryOnly);
-              const key = (["obstructive", "clearAirway", "hypopnea", "unclassified", "rera"] as const)[index];
-              return <span key={channel} className="event-chip" title={EVENT_PRESENTATION[channel].name} style={{ borderColor: `${EVENT_PRESENTATION[channel].color}55`, color: EVENT_PRESENTATION[channel].color }}><i style={{ background: EVENT_PRESENTATION[channel].color }} />{EVENT_PRESENTATION[channel].label}<strong>{summary ? daily.eventIndices[key].toFixed(2) : daily.eventCounts[key]}</strong></span>;
-            })}{charts?.series.some(series => series.channelId === Channel.CSR) && <span className="event-chip" style={{ color: EVENT_PRESENTATION[Channel.CSR].color }}>CSR <strong>{charts.series.filter(series => series.channelId === Channel.CSR).reduce((sum, series) => sum + series.timesMs.length, 0)}</strong><small>spans</small></span>}<span className="ml-auto text-xs text-[var(--muted)]">{daily.date} · {daily.deviceTimeZone}</span></div>
-            <div className={`daily-workspace grid grid-cols-[minmax(0,1fr)] items-start gap-3.5 ${inspectorOpen ? "with-inspector min-[1351px]:grid-cols-[minmax(0,1fr)_336px]" : ""}`}>
+            <div className="daily-workspace min-w-0">
               <Card className="graphs-panel min-w-0 border-[var(--border)] bg-[var(--surface)] p-0 shadow-none dark:border-[var(--border)] dark:bg-[var(--surface)]"><div className="graphs-title"><div><h2>Waveform workspace</h2><p>Synchronised signals · device wall-clock time</p></div><span>{daily.availableChannels.length} stored channels</span></div>{charts ? <GraphStack data={charts} daily={daily} initialPreferences={initialGraphPreferences} navigation={graphNavigation} bookmarkRevision={bookmarkRevision} onBookmarksChange={setGraphBookmarks} /> : <div className="graph-empty">Loading chart data…</div>}</Card>
-              {inspectorOpen && <button className="inspector-shade" aria-label="Dismiss Night Inspector" onClick={() => setInspectorOpen(false)} />}{inspectorOpen && <NightInspector key={`${machineId}-${daily.date}`} daily={daily} charts={charts} onClose={() => setInspectorOpen(false)} onToggleSession={(id, enabled) => void setSessionEnabled(id, enabled)} onDate={setDate} bookmarks={graphBookmarks} onBookmarkDelete={id => { void window.oscar.deleteGraphBookmark(machineId, id).then(() => setBookmarkRevision(value => value + 1)).catch(cause => setError(String(cause))); }} onNavigate={(startMs, endMs) => setGraphNavigation({ startMs, endMs, requestId: Date.now() })} />}
             </div>
           </>}
         </>}
@@ -320,6 +307,8 @@ export function App({ deployment = "desktop" }: { deployment?: "desktop" | "brow
         {view === "statistics" && machine && machineId !== undefined && <Statistics machine={machine} machineId={machineId} defaultEndDate={date} toolbarTarget={historyToolbar} />}
         {!["daily", "overview", "statistics", "sessions"].includes(view) && <AdminPages view={view} machines={machines} machineId={machineId} onSelectMachine={selectMachine} onProfiles={() => setShowProfileSettings(true)} onImport={chooseImportSource} onDiagnostics={() => void createDiagnostics()} onStatistics={() => setView("statistics")} appInfo={appInfo} deployment={deployment} theme={theme} onTheme={setTheme} />}
       </main>
+      {showInspector && <button className="inspector-shade" aria-label="Dismiss Night Inspector" onClick={() => setInspectorOpen(false)} />}{showInspector && <NightInspector key={`${machineId}-${daily.date}`} daily={daily} charts={charts} onClose={() => setInspectorOpen(false)} onToggleSession={(id, enabled) => void setSessionEnabled(id, enabled)} onDate={setDate} bookmarks={graphBookmarks} onBookmarkDelete={id => { void window.oscar.deleteGraphBookmark(machineId, id).then(() => setBookmarkRevision(value => value + 1)).catch(cause => setError(String(cause))); }} onNavigate={(startMs, endMs) => setGraphNavigation({ startMs, endMs, requestId: Date.now() })} />}
+      </div>
     </div>
     {setup && needsSetup && <FirstRunSetup systemTimeZone={setup.systemTimeZone} onComplete={completeSetup} onOpenExisting={openDatabase} onTryDemo={loadDemoData} />}
     {showProfileSettings && database && <ProfileSettingsDialog profiles={profiles} activeProfile={activeProfile} machine={machine} machineTime={machineTime} onClose={() => setShowProfileSettings(false)} onSelect={selectProfile} onCreate={createProfile} onUpdate={updateProfile} onSetMachineTimeZone={setCurrentMachineTimeZone} />}

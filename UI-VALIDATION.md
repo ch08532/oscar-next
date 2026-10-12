@@ -1,5 +1,28 @@
 # UI refresh validation
 
+## Night Inspector panel follow-up — 2026-10-12
+
+- Removed the Daily KPI cards and event strip. Inspector Summary retains Usage,
+  AHI, Pressure/Leak 95% and respiratory indices; added RDI, included-session
+  count, detailed event totals and CSR spans. The date/timezone stays visible
+  in the inspector heading. Summary-derived indices remain distinct from counts.
+- Moved the inspector outside the padded graph content into a right panel flush
+  below the measured header, with independent scrolling and full remaining
+  viewport height. Its header toggle releases/restores the graph width on wide
+  screens; narrow screens retain a modal drawer, backdrop and Escape dismissal.
+- Baseline `npm run verify`: PASS, 168 tests and synthetic smoke. Final `npm test`
+  (including root build): PASS, 168 tests. Desktop and headless builds and renderer
+  `tsc --noEmit -p apps/desktop/tsconfig.json`: PASS.
+- Actual browser REST and Electron preload/IPC checks against an isolated
+  synthetic database: PASS at 1600, 1280, 1024 and 650 pixels. Checked header/right
+  alignment, full panel height, scrolling, hide/show chart width, metric presence,
+  event navigation, responsive modal semantics, Escape and no horizontal page
+  overflow. The wrapped header at 650 pixels correctly moves the panel down.
+  Screenshots/helpers/results stay ignored under `.validation/`.
+- Windows build 26200, Node v24.21.0, npm 11.19.0. Physical mouse and Raspberry Pi
+  checks remain manual. No new unit tests were added solely to assert layout;
+  the running applications were checked directly. No real therapy data used.
+
 Validation date: 2026-10-10. Windows x64, Node 24.21.0, npm 11.19.0.
 The restricted environment denied the Windows OS-version query; no Windows
 edition/build is claimed. All runtime validation used fresh isolated profiles

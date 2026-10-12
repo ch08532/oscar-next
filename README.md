@@ -674,6 +674,10 @@ Notes, and persisted Bookmarks. Selecting an event opens a two-minute analysis
 window. Notes are explicitly unsaved drafts, cleared when leaving the night.
 Viewport statistics can be expanded below the graph toolbar. On smaller displays
 the sidebar becomes compact and the inspector becomes a dismissible drawer.
+Night Inspector docks against the right edge directly below the header and
+scrolls independently. Use the header's Night Inspector button to show or hide
+it; hiding it gives the graphs the available width. Night metrics and event
+totals live in its Summary tab rather than a duplicate strip above the graphs.
 
 Dense high-rate Flow and Mask Pressure rows use a native WebGL waveform layer
 when acceleration is available. Axes, labels, event flags and cursor overlays
