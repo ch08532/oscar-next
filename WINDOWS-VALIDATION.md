@@ -512,3 +512,17 @@ Electron visual validation and packaging were not repeated for this adjustment.
   Manual browser/Electron dragging and performance on real long histories
   remain unverified. Restart the headless process and reload the browser to
   use the rebuilt server and UI.
+### Follow-up — Daily Canvas/WebGL performance (2026-10-12)
+
+- Windows build 26200, Node v24.21.0, npm 11.19.0; Intel Iris Xe via ANGLE/D3D11.
+- `npm run verify`: PASS, 168 tests and synthetic demo smoke (baseline 159).
+- Desktop/headless renderer builds and renderer TypeScript check: PASS. Initial
+  headless build failed with EPERM replacing generated assets in the sandbox;
+  rebuilding outside that restriction succeeded.
+- Browser REST and actual Electron IPC runtime checks: PASS for cursor bursts,
+  wheel cancellation, zoom/pan, bookmarks, DPR changes and GPU-to-Canvas fallback
+  on context loss, unavailable WebGL, shader and allocation failures.
+- 100 pointer moves: zero waveform redraws, fourteen cursor-overlay redraws.
+  Physical mouse, other GPUs and Pi remain untested. Synthetic data only.
+- See [Daily chart performance validation](DAILY-CHART-PERFORMANCE-VALIDATION.md)
+  for methods, measured comparisons, exact checks and limitations.

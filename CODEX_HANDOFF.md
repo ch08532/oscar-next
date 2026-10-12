@@ -109,6 +109,7 @@ ResMed SD card / copied card folder
 - `src/storage/queries.ts`
 - current SQLite schema version: **v7** (nullable graph visibility; existing layouts preserved)
 - Daily respiratory graphs and raw-sample analysis: `DAILY-RESPIRATORY-GRAPHS-PLAN.md` and `DAILY-RESPIRATORY-GRAPHS-VALIDATION.md`
+- Daily frame scheduling, drawing caches and WebGL/Canvas fallback: `DAILY-CHART-PERFORMANCE-PLAN.md` and `DAILY-CHART-PERFORMANCE-VALIDATION.md`
 - SQLite index/query review and synthetic benchmark: `SQLITE-PERFORMANCE-REVIEW.md`
 
 ### Reports / diagnostics

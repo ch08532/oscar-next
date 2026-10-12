@@ -90,7 +90,7 @@ button.secondary { background: var(--surface); color: var(--accent); border: 1px
 .graph-canvas-wrap { position: relative; touch-action: none; cursor: crosshair; user-select: none; }
 .graph-canvas-wrap:active { cursor: grabbing; }
 .graph-canvas-wrap > canvas { width: 100%; display: block; }
-.graph-canvas-wrap > .graph-cursor-overlay { position: absolute; inset: 0; pointer-events: none; background: transparent; }
+.graph-canvas-wrap > .graph-cursor-overlay,.graph-canvas-wrap > .graph-waveform-layer { position: absolute; inset: 0; pointer-events: none; background: transparent; }
 
 .toolbar-view-title { display: grid; gap: 2px; align-self: center; }
 .toolbar-view-title strong { font-size: 16px; }

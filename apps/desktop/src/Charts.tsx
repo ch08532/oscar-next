@@ -1,5 +1,5 @@
 import { Pin, GripVertical, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { Channel, EVENT_CHANNELS } from "./channels";
 import type { ChartQueryResult, ChartSeries, DailySummary, GraphBookmark, GraphPreference } from "./types";
 import { channelStatistics, countEvents, eventsNearCursor, hasSamplesInViewport, lowerBound, nearestPoint, statistics, therapyWindowEventSummary, valuesInViewport } from "./chart-analysis";
@@ -8,6 +8,9 @@ import type { GraphNavigation } from "./components/NightInspector";
 import { ChartEmptyState } from "./components/ChartEmptyState";
 import { availableDailyGraphs, CHANNEL_METADATA, graphPresetVisibility, isGraphVisible, selectedChartChannels, type GraphDefinition } from "./daily-graphs";
 import { DEFAULT_THERAPY_ANALYSIS } from "../../../src/core/therapy-analysis";
+import { plotGeometry } from "./chart-rendering";
+import { useFrameState } from "./useFrameState";
+import { createWaveformLayer, type WaveformLayer } from "./webgl-waveforms";
 
 type Viewport = { startMs: number; endMs: number };
 
@@ -54,15 +57,28 @@ function visibleBounds(series: readonly ChartSeries[], viewport: Viewport): { mi
 }
 
 function setCanvasSize(canvas: HTMLCanvasElement, height: number): CanvasRenderingContext2D | undefined {
-  const width = Math.max(320, canvas.clientWidth || 320);
+  const width = Math.max(1, canvas.clientWidth || 320);
   const dpr = Math.max(1, window.devicePixelRatio || 1);
-  canvas.width = Math.round(width * dpr);
-  canvas.height = Math.round(height * dpr);
+  if (canvas.width !== Math.round(width * dpr)) canvas.width = Math.round(width * dpr);
+  if (canvas.height !== Math.round(height * dpr)) canvas.height = Math.round(height * dpr);
   canvas.style.height = `${height}px`;
   const context = canvas.getContext("2d") ?? undefined;
   if (!context) return undefined;
   context.setTransform(dpr, 0, 0, dpr, 0, 0);
   return context;
+}
+
+function observeCanvasSize(canvas: HTMLCanvasElement, draw: () => void): { disconnect(): void } {
+  let width = canvas.clientWidth, height = canvas.clientHeight;
+  let dpr = window.devicePixelRatio;
+  const resize = () => {
+    if (width === canvas.clientWidth && height === canvas.clientHeight && dpr === window.devicePixelRatio) return;
+    width = canvas.clientWidth; height = canvas.clientHeight; dpr = window.devicePixelRatio; draw();
+  };
+  const observer = new ResizeObserver(resize);
+  observer.observe(canvas);
+  window.addEventListener("resize", resize);
+  return { disconnect() { observer.disconnect(); window.removeEventListener("resize", resize); } };
 }
 
 const CHANNEL_META: Readonly<Record<number, { name: string; color: string }>> = Object.freeze({
@@ -176,49 +192,19 @@ function drawSeries(
   yMax: number,
 ): void {
   const { left, top, plotWidth, plotHeight } = geometry;
-  const duration = Math.max(1, viewport.endMs - viewport.startMs);
   const ySpan = Math.max(1e-9, yMax - yMin);
-  const startIndex = Math.max(0, lowerBound(series.timesMs, viewport.startMs) - 1);
-  const endIndex = Math.min(series.timesMs.length, lowerBound(series.timesMs, viewport.endMs) + 1);
-  if (endIndex <= startIndex) return;
-
-  const xFor = (time: number) => left + ((time - viewport.startMs) / duration) * plotWidth;
+  const mesh = plotGeometry(series, viewport, plotWidth);
   const yFor = (value: number) => top + (1 - (value - yMin) / ySpan) * plotHeight;
   context.strokeStyle = channelColor(series.channelId);
   context.lineWidth = 1;
-
-  const visibleCount = endIndex - startIndex;
-  if (visibleCount > plotWidth * 4) {
-    const mins = new Float64Array(Math.ceil(plotWidth) + 1); mins.fill(Number.POSITIVE_INFINITY);
-    const maxs = new Float64Array(Math.ceil(plotWidth) + 1); maxs.fill(Number.NEGATIVE_INFINITY);
-    for (let point = startIndex; point < endIndex; point += 1) {
-      const time = series.timesMs[point]; const value = series.values[point];
-      if (time === undefined || value === undefined || !Number.isFinite(value)) continue;
-      const bucket = Math.max(0, Math.min(mins.length - 1, Math.floor(xFor(time) - left)));
-      mins[bucket] = Math.min(mins[bucket] ?? value, value);
-      maxs[bucket] = Math.max(maxs[bucket] ?? value, value);
-    }
-    context.beginPath();
-    for (let bucket = 0; bucket < mins.length; bucket += 1) {
-      const min = mins[bucket]; const max = maxs[bucket];
-      if (!Number.isFinite(min) || !Number.isFinite(max)) continue;
-      const x = left + bucket;
-      context.moveTo(x, yFor(min)); context.lineTo(x, yFor(max));
-    }
-    context.stroke();
-    return;
-  }
-
+  context.save(); context.beginPath(); context.rect(left, top, plotWidth, plotHeight); context.clip();
   context.beginPath();
-  let started = false;
-  for (let point = startIndex; point < endIndex; point += 1) {
-    const time = series.timesMs[point]; const value = series.values[point];
-    if (time === undefined || value === undefined || !Number.isFinite(value)) continue;
-    const x = xFor(time); const y = yFor(value);
-    if (!started) { context.moveTo(x, y); started = true; }
+  for (let index = 0; index < mesh.vertices.length; index += 2) {
+    const x = left + mesh.vertices[index]! * plotWidth, y = yFor(mesh.vertices[index + 1]!);
+    if (index === 0 || mesh.mode === "segments" && index % 4 === 0) context.moveTo(x, y);
     else context.lineTo(x, y);
   }
-  context.stroke();
+  context.stroke(); context.restore();
 }
 
 interface InteractionProps {
@@ -226,6 +212,7 @@ interface InteractionProps {
   bounds: Viewport;
   cursorMs?: number;
   setViewport: (viewport: Viewport) => void;
+  getViewport: () => Viewport;
   setCursorMs: (cursor?: number) => void;
   resetViewport: () => void;
 }
@@ -234,11 +221,11 @@ function useGraphInteractions(props: InteractionProps, plotLeft = 64, plotRight 
   const drag = useRef<{ x: number; viewport: Viewport } | undefined>(undefined);
   const interactionRef = useRef<HTMLDivElement>(null);
 
-  function timeAt(clientX: number, element: HTMLElement): number {
+  function timeAt(clientX: number, element: HTMLElement, viewport = props.getViewport()): number {
     const rect = element.getBoundingClientRect();
     const width = Math.max(1, rect.width - plotLeft - plotRight);
     const fraction = Math.max(0, Math.min(1, (clientX - rect.left - plotLeft) / width));
-    return props.viewport.startMs + fraction * (props.viewport.endMs - props.viewport.startMs);
+    return viewport.startMs + fraction * (viewport.endMs - viewport.startMs);
   }
 
   useEffect(() => {
@@ -247,22 +234,23 @@ function useGraphInteractions(props: InteractionProps, plotLeft = 64, plotRight 
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
       if (event.deltaY === 0) return;
-      const pivot = timeAt(event.clientX, element);
-      const currentDuration = props.viewport.endMs - props.viewport.startMs;
+      const current = props.getViewport();
+      const pivot = timeAt(event.clientX, element, current);
+      const currentDuration = current.endMs - current.startMs;
       const factor = event.deltaY < 0 ? 0.78 : 1.28;
       const duration = currentDuration * factor;
-      const fraction = (pivot - props.viewport.startMs) / Math.max(1, currentDuration);
+      const fraction = (pivot - current.startMs) / Math.max(1, currentDuration);
       const candidate = { startMs: pivot - duration * fraction, endMs: pivot + duration * (1 - fraction) };
       props.setViewport(clampViewport(candidate, props.bounds));
     };
     // React's passive wheel listener cannot cancel the browser's page scrolling.
     element.addEventListener("wheel", onWheel, { passive: false });
     return () => element.removeEventListener("wheel", onWheel);
-  }, [props.viewport, props.bounds, props.setViewport, plotLeft, plotRight]);
+  }, [props.bounds, props.setViewport, props.getViewport, plotLeft, plotRight]);
 
   function onPointerDown(event: ReactPointerEvent<HTMLElement>) {
     event.currentTarget.setPointerCapture(event.pointerId);
-    drag.current = { x: event.clientX, viewport: props.viewport };
+    drag.current = { x: event.clientX, viewport: props.getViewport() };
   }
 
   function onPointerMove(event: ReactPointerEvent<HTMLElement>) {
@@ -348,10 +336,29 @@ function GraphPanel({ definition, series, interaction, pinned, height: storedHei
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
+  const gpuCanvasRef = useRef<HTMLCanvasElement>(null);
+  const gpuLayerRef = useRef<WaveformLayer | undefined>(undefined);
+  const [gpuFailed, setGpuFailed] = useState(false);
+  const denseSource = series.some(item => item.type === "waveform" && (item.channelId === Channel.FlowRate || item.channelId === Channel.MaskPressureHigh) && item.sourcePointCount >= 20_000);
+  const [gpuEligible, setGpuEligible] = useState(denseSource);
+  // Keep the context while zooming into sparse windows; at most the three rows
+  // containing high-rate Flow/Mask Pressure allocate a GPU context.
+  useEffect(() => { if (denseSource) setGpuEligible(true); }, [denseSource]);
+  const gpuEnabled = !gpuFailed && gpuEligible;
   const { height, onResizePointerDown } = useResizableGraphHeight(storedHeight, onHeightCommit);
   const events = useGraphInteractions(interaction);
   const unit = definition.unitFallback || series.find((item) => item.dimension)?.dimension || "";
   const channelNames = [...new Set(series.map((item) => CHANNEL_META[item.channelId]?.name ?? CHANNEL_METADATA[item.channelId]?.name).filter(Boolean))].join(" / ");
+  const scale = useMemo(() => {
+    const bounds = visibleBounds(series, interaction.viewport) ?? { min: 0, max: 1 };
+    if (definition.symmetric) {
+      const extent = Math.max(Math.abs(bounds.min), Math.abs(bounds.max), 1);
+      bounds.min = -extent; bounds.max = extent;
+    } else if (definition.zeroBaseline) bounds.min = Math.min(0, bounds.min);
+    if (threshold !== undefined) bounds.max = Math.max(bounds.max, threshold);
+    const padding = Math.max(0.1, (bounds.max - bounds.min) * 0.08);
+    return { min: definition.symmetric ? bounds.min : bounds.min - padding, max: definition.symmetric ? bounds.max : bounds.max + padding };
+  }, [definition, series, interaction.viewport, threshold]);
   const cursorPoints = useMemo(() => {
     if (interaction.cursorMs === undefined) return [];
     return series.flatMap((item) => {
@@ -367,20 +374,21 @@ function GraphPanel({ definition, series, interaction, pinned, height: storedHei
   }, [definition.unitFallback, interaction.cursorMs, series]);
 
   useEffect(() => {
+    const canvas = gpuCanvasRef.current;
+    if (!gpuEnabled || !canvas) return;
+    const layer = createWaveformLayer(canvas, () => setGpuFailed(true));
+    if (!layer) { setGpuFailed(true); return; }
+    gpuLayerRef.current = layer;
+    return () => { gpuLayerRef.current = undefined; layer.dispose(); };
+  }, [gpuEnabled]);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const draw = () => {
       const context = setCanvasSize(canvas, height); if (!context) return;
       const width = canvas.clientWidth;
-      let bounds = visibleBounds(series, interaction.viewport) ?? { min: 0, max: 1 };
-      if (definition.symmetric) {
-        const extent = Math.max(Math.abs(bounds.min), Math.abs(bounds.max), 1);
-        bounds = { min: -extent, max: extent };
-      } else if (definition.zeroBaseline) bounds.min = Math.min(0, bounds.min);
-      if (threshold !== undefined) bounds.max = Math.max(bounds.max, threshold);
-      const padding = Math.max(0.1, (bounds.max - bounds.min) * 0.08);
-      const yMin = definition.symmetric ? bounds.min : bounds.min - padding;
-      const yMax = definition.symmetric ? bounds.max : bounds.max + padding;
+      const yMin = scale.min, yMax = scale.max;
       const geometry = drawGrid(context, width, height, interaction.viewport, yMin, yMax, unit);
       if (threshold !== undefined) {
         const y = geometry.top + (1 - (threshold - yMin) / (yMax - yMin)) * geometry.plotHeight;
@@ -389,13 +397,14 @@ function GraphPanel({ definition, series, interaction, pinned, height: storedHei
         context.fillStyle = canvasColor("--muted"); context.textAlign = "right";
         context.fillText(`Large Leak ${threshold} L/min`, width - geometry.right - 4, Math.max(geometry.top + 6, y - 8)); context.restore();
       }
-      series.forEach((item) => drawSeries(context, item, interaction.viewport, geometry, yMin, yMax));
+      const gpuDrawn = gpuEnabled && gpuLayerRef.current?.draw(series.map(item => ({ geometry: plotGeometry(item, interaction.viewport, geometry.plotWidth), color: channelColor(item.channelId) })), width, height, Math.max(1, window.devicePixelRatio || 1), yMin, yMax);
+      if (!gpuDrawn) series.forEach((item) => drawSeries(context, item, interaction.viewport, geometry, yMin, yMax));
     };
     draw();
-    const observer = new ResizeObserver(draw); observer.observe(canvas);
+    const observer = observeCanvasSize(canvas, draw);
     window.addEventListener("oscar-theme-change", draw);
     return () => { observer.disconnect(); window.removeEventListener("oscar-theme-change", draw); };
-  }, [definition, height, interaction.viewport, series, unit, threshold]);
+  }, [scale, height, interaction.viewport, series, unit, threshold, gpuEnabled]);
 
   useEffect(() => {
     const canvas = overlayRef.current; if (!canvas) return;
@@ -409,14 +418,7 @@ function GraphPanel({ definition, series, interaction, pinned, height: storedHei
       context.strokeStyle = canvasColor("--cursor"); context.lineWidth = 1; context.setLineDash([3, 3]);
       context.beginPath(); context.moveTo(x, top); context.lineTo(x, height - bottom); context.stroke(); context.setLineDash([]);
 
-      let bounds = visibleBounds(series, interaction.viewport) ?? { min: 0, max: 1 };
-      if (definition.symmetric) {
-        const extent = Math.max(Math.abs(bounds.min), Math.abs(bounds.max), 1);
-        bounds = { min: -extent, max: extent };
-      } else if (definition.zeroBaseline) bounds.min = Math.min(0, bounds.min);
-      const padding = Math.max(0.1, (bounds.max - bounds.min) * 0.08);
-      const yMin = definition.symmetric ? bounds.min : bounds.min - padding;
-      const yMax = definition.symmetric ? bounds.max : bounds.max + padding;
+      const yMin = scale.min, yMax = scale.max;
       const ySpan = Math.max(1e-9, yMax - yMin);
       const yFor = (value: number) => top + (1 - (value - yMin) / ySpan) * plotHeight;
       const xFor = (time: number) => left + ((time - interaction.viewport.startMs) / Math.max(1, interaction.viewport.endMs - interaction.viewport.startMs)) * plotWidth;
@@ -440,8 +442,8 @@ function GraphPanel({ definition, series, interaction, pinned, height: storedHei
         lines.forEach((line, index) => context.fillText(line, boxX + 8, boxY + 7 + lineHeight * index + lineHeight / 2));
       }
     };
-    draw(); const observer = new ResizeObserver(draw); observer.observe(canvas); window.addEventListener("oscar-theme-change", draw); return () => { observer.disconnect(); window.removeEventListener("oscar-theme-change", draw); };
-  }, [cursorPoints, definition, height, interaction.cursorMs, interaction.viewport, series]);
+    draw(); const observer = observeCanvasSize(canvas, draw); window.addEventListener("oscar-theme-change", draw); return () => { observer.disconnect(); window.removeEventListener("oscar-theme-change", draw); };
+  }, [cursorPoints, scale, height, interaction.cursorMs, interaction.viewport, series]);
 
   const headingDetail = cursorPoints.length
     ? cursorPoints.map((readout) => `${readout.name} ${formatReading(readout.point.value, readout.unit)}`).join(" · ")
@@ -449,8 +451,9 @@ function GraphPanel({ definition, series, interaction, pinned, height: storedHei
 
   return <section className="therapy-graph graph-layout-item" onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; }} onDrop={(event) => { event.preventDefault(); const source = event.dataTransfer.getData("text/x-oscar-graph-key"); if (source) onDropGraph(source, definition.key); }}>
     <div className="graph-heading"><div className="graph-heading-title"><GraphDragHandle graphKey={definition.key} onStart={onDragStart} /><GraphPin pinned={pinned} onToggle={onTogglePin} /><strong>{definition.title}</strong></div><span className={cursorPoints.length ? "cursor-reading" : ""}>{headingDetail}</span></div>
-    <div className="graph-canvas-wrap" {...events}>
+    <div className="graph-canvas-wrap" data-waveform-renderer={gpuEnabled ? "webgl" : "canvas"} {...events}>
       <canvas ref={canvasRef} aria-label={`${definition.title} graph`} />
+      {gpuEnabled && <canvas ref={gpuCanvasRef} className="graph-waveform-layer" aria-hidden="true" />}
       <canvas ref={overlayRef} className="graph-cursor-overlay" aria-hidden="true" />
       {!hasSamplesInViewport(series, interaction.viewport) && <ChartEmptyState className="absolute inset-0" />}
     </div>
@@ -514,7 +517,7 @@ function EventFlags({ series, interaction, pinned, height: storedHeight, onToggl
         context.fillText(timeLabel(time), x, height - 10);
       }
     };
-    draw(); const observer = new ResizeObserver(draw); observer.observe(canvas); window.addEventListener("oscar-theme-change", draw); return () => { observer.disconnect(); window.removeEventListener("oscar-theme-change", draw); };
+    draw(); const observer = observeCanvasSize(canvas, draw); window.addEventListener("oscar-theme-change", draw); return () => { observer.disconnect(); window.removeEventListener("oscar-theme-change", draw); };
   }, [height, interaction.viewport, rows]);
 
   useEffect(() => {
@@ -545,7 +548,7 @@ function EventFlags({ series, interaction, pinned, height: storedHeight, onToggl
         lines.forEach((line, index) => context.fillText(line, boxX + 8, boxY + 7 + lineHeight * index + lineHeight / 2));
       }
     };
-    draw(); const observer = new ResizeObserver(draw); observer.observe(canvas); window.addEventListener("oscar-theme-change", draw); return () => { observer.disconnect(); window.removeEventListener("oscar-theme-change", draw); };
+    draw(); const observer = observeCanvasSize(canvas, draw); window.addEventListener("oscar-theme-change", draw); return () => { observer.disconnect(); window.removeEventListener("oscar-theme-change", draw); };
   }, [height, interaction.cursorMs, interaction.viewport, series]);
 
   return <section className="therapy-graph event-flags graph-layout-item" onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; }} onDrop={(event) => { event.preventDefault(); const source = event.dataTransfer.getData("text/x-oscar-graph-key"); if (source) onDropGraph(source, "events"); }}>
@@ -570,8 +573,12 @@ export function GraphStack({ data, daily, navigation, initialPreferences = [], b
     const points = data.series.flatMap((series) => series.timesMs.length ? [series.timesMs[0] ?? data.rangeStartMs, series.timesMs[series.timesMs.length - 1] ?? data.rangeEndMs] : []);
     return points.length ? { startMs: Math.min(...points), endMs: Math.max(...points) } : { startMs: data.rangeStartMs, endMs: data.rangeEndMs };
   }, [daily.sessions, data]);
-  const [viewport, setViewport] = useState<Viewport>(bounds);
-  const [cursorMs, setCursorMs] = useState<number>();
+  const [viewport, queueViewport, getViewport] = useFrameState<Viewport>(bounds);
+  const setViewport = useCallback((next: Viewport) => {
+    const current = getViewport();
+    if (next.startMs !== current.startMs || next.endMs !== current.endMs) queueViewport(next);
+  }, [getViewport, queueViewport]);
+  const [cursorMs, setCursorMs] = useFrameState<number | undefined>(undefined);
   const [detailData, setDetailData] = useState<ChartQueryResult>(data);
   const [detailLoading, setDetailLoading] = useState(false);
   const [graphPreferences, setGraphPreferences] = useState<GraphPreference[]>(initialPreferences);
@@ -730,12 +737,12 @@ export function GraphStack({ data, daily, navigation, initialPreferences = [], b
 
   const detailCoversViewport = detailData.rangeStartMs <= viewport.startMs + 1 && detailData.rangeEndMs >= viewport.endMs - 1;
   const renderData = fullView || detailCoversViewport ? detailData : data;
-  const interaction: InteractionProps = { viewport, bounds, cursorMs, setViewport, setCursorMs, resetViewport: () => setViewport(bounds) };
+  const interaction: InteractionProps = { viewport, bounds, cursorMs, setViewport, getViewport, setCursorMs, resetViewport: () => setViewport(bounds) };
   // Keep rows and zoom controls available when a detail window falls in a data gap.
-  const graphEntries = availableGraphs.filter(definition => definition.key !== "events" && isGraphVisible(definition, graphPreferences))
-    .map((definition) => ({ definition, series: renderData.series.filter((item) => definition.channelIds.includes(item.channelId)) }));
+  const graphEntries = useMemo(() => availableGraphs.filter(definition => definition.key !== "events" && isGraphVisible(definition, graphPreferences))
+    .map((definition) => ({ definition, series: renderData.series.filter((item) => definition.channelIds.includes(item.channelId)) })), [availableGraphs, graphPreferences, renderData.series]);
   const eventChannelIds = EVENT_CHANNELS as readonly number[];
-  const eventSeries = renderData.series.filter((item) => eventChannelIds.includes(item.channelId));
+  const eventSeries = useMemo(() => renderData.series.filter((item) => eventChannelIds.includes(item.channelId)), [renderData.series]);
   const hasEventChannels = availableGraphs.some(definition => definition.key === "events" && isGraphVisible(definition, graphPreferences));
   const graphRows = [
     ...(hasEventChannels ? [{ key: "events", kind: "events" as const, baseOrder: 0 }] : []),

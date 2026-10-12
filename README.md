@@ -200,10 +200,11 @@ Implemented:
   - Daily graphs, Overview charts, and the therapy timeline show “No data” for empty results; missing readings and dates without included sessions are chart gaps, while valid zero measurements remain visible
   - usage, AHI/RDI, event counts, pressure/leak 95th-percentile cards
   - session table
-  - Canvas-based Flow Rate, Pressure, Leak, SpO₂, Pulse, and Event Flags graphs
+  - Daily waveform and Event Flags graphs, with WebGL strokes for dense high-rate Flow/Mask Pressure rows and automatic Canvas fallback
   - one shared time viewport across all graphs
   - mouse-wheel zoom around the pointer without scrolling the page, drag-to-pan, and double-click/reset zoom
   - synchronized cursor across every graph without redrawing the underlying high-rate waveforms
+  - pointer/zoom/pan updates coalesce per animation frame; filtered series, visible bounds and drawing geometry are reused
   - per-pixel min/max downsampling for dense full-night waveforms
   - full-night graph loads request a bounded adaptive series instead of transferring every 25 Hz sample
   - zoom/pan triggers a debounced backend query for only the visible time window at higher resolution
@@ -666,13 +667,25 @@ sidebar, compact Daily workspace, historical Overview charts, Statistics tables,
 and administration pages. Appearance defaults to dark; choose Light, Dark, or
 System in **Settings**. The preference is stored locally in this client.
 
-Daily retains the custom Canvas waveform/event renderer, synchronized cursor,
+Daily retains the custom waveform/event renderer, synchronized cursor,
 shared zoom/pan, adaptive queries, pin/order/resize controls, and saved graph
 views. **Night Inspector** provides Summary, chronological Events, temporary
 Notes, and persisted Bookmarks. Selecting an event opens a two-minute analysis
 window. Notes are explicitly unsaved drafts, cleared when leaving the night.
 Viewport statistics can be expanded below the graph toolbar. On smaller displays
 the sidebar becomes compact and the inspector becomes a dismissible drawer.
+
+Dense high-rate Flow and Mask Pressure rows use a native WebGL waveform layer
+when acceleration is available. Axes, labels, event flags and cursor overlays
+remain on Canvas. If WebGL is unavailable, initialization fails, or a context is
+lost, the affected row automatically uses Canvas. Both paths share geometry that
+preserves per-pixel minima/maxima and recording-list boundaries; GPU coordinates
+use relative time so epoch timestamps keep their precision. At most three
+high-rate graph rows allocate GPU contexts, and contexts are retained during zoom
+and released when rows are removed. No new chart library is required.
+
+See [Daily chart performance validation](DAILY-CHART-PERFORMANCE-VALIDATION.md)
+for synthetic comparisons, fallback checks and platform validation limits.
 
 Overview and Statistics share the same **therapy-history timeline**: draggable
 and keyboard-accessible date handles, custom date inputs, 7/30/90-day, 6-month
