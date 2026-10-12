@@ -491,7 +491,7 @@ export class OscarQueries {
     const series: ChartSeries[] = [];
 
     for (const session of sessions) {
-      const rows = this.#eventListRows(session.row_id).filter((row) => requested.has(row.channel_id));
+      const rows = this.#eventListRows(session.row_id, [...requested]);
       for (const row of rows) {
         if (row.list_type === EventListType.Waveform) {
           const waveform = this.#waveformSeries(row, rangeStartMs, rangeEndMs, maxPointsPerSeries);
@@ -665,20 +665,28 @@ export class OscarQueries {
     return usageMsFromSlices(session, slices, rangeStart, rangeEnd);
   }
 
-  #eventListRows(sessionRowId: number): EventListRow[] {
+  #eventListRows(sessionRowId: number, channelIds: readonly ChannelId[]): EventListRow[] {
+    if (channelIds.length === 0) return [];
+    const placeholders = channelIds.map(() => "?").join(",");
     return this.#db.prepare(`
       SELECT id, channel_id, list_index, list_type, gain, offset, rate_ms, dimension,
              first_ms, duration_ms, second_field, raw_blob, raw2_blob, time_deltas_blob
       FROM event_lists
-      WHERE session_row_id = ?
+      WHERE session_row_id = ? AND channel_id IN (${placeholders})
       ORDER BY channel_id, list_index
-    `).all(sessionRowId) as EventListRow[];
+    `).all(sessionRowId, ...channelIds) as EventListRow[];
   }
 
   #countEvents(sessions: readonly SessionRow[], channelId: ChannelId, startMs: number, endMs: number): number {
     let count = 0;
     for (const session of sessions) {
-      const rows = this.#eventListRows(session.row_id).filter((row) => row.channel_id === channelId && row.list_type === EventListType.Event);
+      // Counts need timestamp deltas, not values, durations, or other channels.
+      const rows = this.#db.prepare(`
+        SELECT first_ms, time_deltas_blob
+        FROM event_lists
+        WHERE session_row_id = ? AND channel_id = ? AND list_type = ?
+        ORDER BY list_index
+      `).all(session.row_id, channelId, EventListType.Event) as Array<{ first_ms: number; time_deltas_blob: Uint8Array | null }>;
       for (const row of rows) {
         const deltas = row.time_deltas_blob ? bytesToUint32(row.time_deltas_blob) : new Uint32Array();
         for (const delta of deltas) {
@@ -693,7 +701,7 @@ export class OscarQueries {
   #channelStatistics(sessions: readonly SessionRow[], channelId: ChannelId, startMs: number, endMs: number): ChannelStatistics | undefined {
     const values: number[] = [];
     for (const session of sessions) {
-      const rows = this.#eventListRows(session.row_id).filter((row) => row.channel_id === channelId);
+      const rows = this.#eventListRows(session.row_id, [channelId]);
       for (const row of rows) {
         if (row.list_type === EventListType.Waveform) {
           const waveform = this.#waveformSeries(row, startMs, endMs, 100_000);

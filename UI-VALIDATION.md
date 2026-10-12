@@ -199,3 +199,49 @@ Excluding every session retains the controls needed to re-enable them; the
 check restored those synthetic sessions afterward. All 133 tests, renderer
 TypeScript, and desktop/headless renderer builds pass. Browser runtime and
 real-card validation were not repeated for this shared-renderer change.
+
+## Graph ranges without data
+
+Overview previously checked only whether the response contained dates. A range
+of summary-only nights still contains date rows, but pressure/leak values are
+absent, so it rendered blank charts. Each trend now checks its own finite numeric
+values and displays a centered `No data` status when none exist. Measured zero
+values remain valid. Daily signal graphs show the same text for an empty selected
+time window, keeping zoom/reset controls available; a graph workspace with no
+series also displays the message. Event flags retain their event count in the
+heading and display `No data` inside the plot when no event records are returned
+for the visible window.
+
+Synthetic Electron checks passed: summary-only Overview ranges show `No data`
+for Pressure and Leak Rate while Usage still renders; Daily zooming into a gap
+shows the message in each signal graph and Reset zoom restores populated graphs.
+Temporary synthetic bookmarks used by the check were removed. Two regression
+tests cover null/undefined/nonfinite values, valid zeros, and half-open time-window
+boundaries. All 138 tests, renderer TypeScript, and desktop/headless builds pass.
+
+A read-only local-database check also confirmed that pressure/leak data on
+detailed nights matches the pre-optimization query results; summary-only nights
+have no detailed signals. No real therapy values, dates, identifiers, or database
+copies were added to the repository. Browser runtime was not separately repeated
+for this shared-renderer change.
+
+## Consistent chart empty states
+
+The shared line/bar components now handle empty results and entirely missing or
+nonfinite category values, including `startEndOnly` charts. Overview keeps all
+five chart cards visible for an empty response. Dates without included sessions
+produce gaps rather than plotting default summary zeros; actual zero readings and
+summary-only AHI/usage remain valid. Daily's empty workspace, signal plots, event
+flags, and the shared Overview/Statistics therapy timeline use the same centered
+`No data` status. Timeline loading does not display an empty result prematurely.
+
+Validation on Windows: baseline `npm run verify` passed (138 tests and demo smoke).
+After changes, `npm test` passed all 140 tests; renderer TypeScript and desktop and
+headless renderer builds passed. Two new regression tests cover empty calendar
+days, recorded zeros, summary-only metrics, missing/nonfinite measurements, and
+retained dates for gaps. An isolated hidden Electron renderer with synthetic
+API responses verified empty/null line and bar charts, all five empty Overview
+charts, dates without sessions, the shared timeline's loading/empty states,
+Daily's empty workspace, all five empty signal graphs, and empty event flags.
+It also verified that recorded zeros restore plots. No real therapy database was
+used for these checks. Full browser REST integration was not repeated.

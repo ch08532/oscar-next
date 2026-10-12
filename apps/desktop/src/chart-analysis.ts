@@ -43,6 +43,22 @@ export function lowerBound(values: ArrayLike<number>, target: number): number {
   return lo;
 }
 
+export function hasFiniteChartValues(rows: readonly Record<string, unknown>[], categories: readonly string[]): boolean {
+  return rows.some(row => categories.some(category => typeof row[category] === "number" && Number.isFinite(row[category])));
+}
+
+/** Match the half-open time window used by chart queries and viewport stats. */
+export function hasSamplesInViewport(series: readonly AnalysisSeries[], viewport: AnalysisViewport): boolean {
+  if (viewport.endMs <= viewport.startMs) return false;
+  return series.some(item => {
+    const end = lowerBound(item.timesMs, viewport.endMs);
+    for (let index = lowerBound(item.timesMs, viewport.startMs); index < end; index++) {
+      if (Number.isFinite(item.values[index])) return true;
+    }
+    return false;
+  });
+}
+
 function percentileSorted(sorted: readonly number[], quantile: number): number {
   if (sorted.length === 0) return 0;
   if (sorted.length === 1) return sorted[0] ?? 0;

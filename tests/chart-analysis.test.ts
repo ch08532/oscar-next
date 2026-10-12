@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   channelStatistics,
+  hasFiniteChartValues,
+  hasSamplesInViewport,
   countEvents,
   eventsNearCursor,
   nearestPoint,
@@ -23,6 +25,26 @@ const events: AnalysisSeries = {
   timesMs: Float64Array.from([1_500, 3_500, 7_500]),
   values: Float32Array.from([10, 11, 12]),
 };
+
+test("chart availability distinguishes missing values from measured zeros", () => {
+  assert.equal(hasFiniteChartValues([], ["Average", "95%"]), false);
+  assert.equal(hasFiniteChartValues([{ date: "2026-10-09", Average: null, "95%": undefined }], ["Average", "95%"]), false);
+  assert.equal(hasFiniteChartValues([{ Average: NaN, "95%": Infinity }], ["Average", "95%"]), false);
+  assert.equal(hasFiniteChartValues([{ unrelated: 10 }], ["Average"]), false);
+  assert.equal(hasFiniteChartValues([{ Average: null }, { Average: 0 }], ["Average"]), true);
+  assert.equal(hasFiniteChartValues([{ Average: 8.5 }], ["Average", "95%"]), true);
+});
+
+test("graph availability checks finite samples inside the selected window", () => {
+  const sparse: AnalysisSeries = { channelId: 1, type: "waveform", timesMs: Float64Array.from([100, 200, 1000]), values: Float32Array.from([0, NaN, 8]) };
+  assert.equal(hasSamplesInViewport([sparse], { startMs: 100, endMs: 200 }), true, "zero at the start is a valid sample");
+  assert.equal(hasSamplesInViewport([sparse], { startMs: 200, endMs: 1000 }), false, "NaN and the excluded end sample are not data");
+  assert.equal(hasSamplesInViewport([sparse], { startMs: 300, endMs: 900 }), false, "samples outside a gap must not hide the message");
+  assert.equal(hasSamplesInViewport([sparse], { startMs: 1000, endMs: 1001 }), true);
+  assert.equal(hasSamplesInViewport([sparse], { startMs: 1000, endMs: 1000 }), false);
+  assert.equal(hasSamplesInViewport([], { startMs: 0, endMs: 100 }), false);
+  assert.equal(hasSamplesInViewport([sparse, waveform], { startMs: 900, endMs: 1100 }), true);
+});
 
 test("chart analysis computes statistics only inside the viewport", () => {
   const result = channelStatistics([waveform], 1, { startMs: 1_500, endMs: 4_500 });

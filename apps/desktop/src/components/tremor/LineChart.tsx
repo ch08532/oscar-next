@@ -5,6 +5,8 @@
 "use client"
 
 import React from "react"
+import { hasFiniteChartValues } from "../../chart-analysis"
+import { ChartEmptyState } from "../ChartEmptyState"
 import { ChevronLeft as RiArrowLeftSLine, ChevronRight as RiArrowRightSLine } from "lucide-react"
 import {
   CartesianGrid,
@@ -599,6 +601,10 @@ const LineChart = React.forwardRef<HTMLDivElement, LineChartProps>(
         })
       }
       setActiveDot(undefined)
+    }
+
+    if (!hasFiniteChartValues(data, categories)) {
+      return <div ref={ref} className={cx("h-80 w-full", className)} {...other}><ChartEmptyState /></div>
     }
 
     return (

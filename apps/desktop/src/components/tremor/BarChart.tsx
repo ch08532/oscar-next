@@ -5,6 +5,8 @@
 "use client"
 
 import React from "react"
+import { hasFiniteChartValues } from "../../chart-analysis"
+import { ChartEmptyState } from "../ChartEmptyState"
 import { ChevronLeft as RiArrowLeftSLine, ChevronRight as RiArrowRightSLine } from "lucide-react"
 import {
   Bar,
@@ -648,6 +650,10 @@ const BarChart = React.forwardRef<HTMLDivElement, BarChartProps>(
         })
       }
       setActiveBar(undefined)
+    }
+
+    if (!hasFiniteChartValues(data, categories)) {
+      return <div ref={forwardedRef} className={cx("h-80 w-full", className)} {...other}><ChartEmptyState /></div>
     }
 
     return (

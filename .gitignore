@@ -6,3 +6,5 @@ dist/
 apps/desktop/backend/
 apps/desktop/headless-dist/
 apps/desktop/release/
+*.sqlite-shm
+*.sqlite-wal

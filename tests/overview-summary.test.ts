@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { filterOverviewDays, summarizeOverviewDays } from "../apps/desktop/src/overview-summary.js";
+import { filterOverviewDays, overviewChartRows, summarizeOverviewDays } from "../apps/desktop/src/overview-summary.js";
+import { hasFiniteChartValues } from "../apps/desktop/src/chart-analysis.js";
 import type { OverviewDaySummary } from "../apps/desktop/src/types.js";
 
 function day(date: string, overrides: Partial<OverviewDaySummary> = {}): OverviewDaySummary {
@@ -16,6 +17,49 @@ const emptySummary = {
   usedDays: 0, totalDays: 0, totalUsage: 0, averageUsage: 0,
   ahi: 0, rdi: 0, compliantDays: 0, pressure95: 0, leak95: 0,
 };
+
+test("all overview charts distinguish empty calendar days from recorded zero values", () => {
+  const series = [
+    { label: "Usage", getValue: (day: OverviewDaySummary) => day.usageHours },
+    { label: "AHI", getValue: (day: OverviewDaySummary) => day.ahi },
+    { label: "OA", getValue: (day: OverviewDaySummary) => day.eventIndices.obstructive },
+    { label: "Pressure", getValue: (day: OverviewDaySummary) => day.pressureAverage },
+    { label: "Leak", getValue: (day: OverviewDaySummary) => day.leakAverage },
+  ];
+  const categories = series.map((item) => item.label);
+  assert.deepEqual(overviewChartRows([], series), []);
+  const emptyDay = day("2026-10-01", { sessionCount: 0, usageHours: 0, ahi: 0, pressureAverage: 0, leakAverage: 0 });
+  const emptyRows = overviewChartRows([emptyDay], series);
+  assert.deepEqual(emptyRows, [{ date: emptyDay.date, Usage: null, AHI: null, OA: null, Pressure: null, Leak: null }]);
+  assert.equal(hasFiniteChartValues(emptyRows, categories), false);
+  const recorded = day("2026-10-02", { usageHours: 0, ahi: 0, pressureAverage: 0, leakAverage: 0 });
+  const rows = overviewChartRows([emptyDay, recorded], series);
+  for (const category of categories) {
+    assert.equal(rows[1]?.[category], 0);
+    assert.equal(hasFiniteChartValues(rows, [category]), true);
+  }
+  assert.equal(emptyDay.pressureAverage, 0, "Chart preparation must not modify summaries");
+});
+
+test("overview chart gaps retain dates and do not discard summary-only metrics", () => {
+  const series = [
+    { label: "AHI", getValue: (day: OverviewDaySummary) => day.ahi },
+    { label: "Pressure", getValue: (day: OverviewDaySummary) => day.pressureAverage },
+    { label: "Leak", getValue: (day: OverviewDaySummary) => day.leakAverage },
+  ];
+  const rows = overviewChartRows([
+    day("2026-10-01", { ahi: 7.5 }),
+    day("2026-10-02", { sessionCount: 0, usageHours: 0 }),
+    day("2026-10-03", { pressureAverage: NaN, leakAverage: Infinity }),
+    day("2026-10-04", { pressureAverage: 8, leakAverage: 0 }),
+  ], series);
+  assert.deepEqual(rows, [
+    { date: "2026-10-01", AHI: 7.5, Pressure: null, Leak: null },
+    { date: "2026-10-02", AHI: null, Pressure: null, Leak: null },
+    { date: "2026-10-03", AHI: 2, Pressure: null, Leak: null },
+    { date: "2026-10-04", AHI: 2, Pressure: 8, Leak: 0 },
+  ]);
+});
 
 test("range filtering includes both boundary dates and retains source order", () => {
   const history = [day("2026-10-04"), day("2026-10-03"), day("2026-10-02"), day("2026-10-01")];

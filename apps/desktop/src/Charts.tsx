@@ -2,9 +2,10 @@ import { Pin, GripVertical, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent, type WheelEvent as ReactWheelEvent } from "react";
 import { Channel, DEFAULT_CHART_CHANNELS, EVENT_CHANNELS } from "./channels";
 import type { ChartQueryResult, ChartSeries, DailySummary, GraphBookmark, GraphPreference } from "./types";
-import { channelStatistics, countEvents, eventsNearCursor, lowerBound, nearestPoint, statistics, therapyWindowEventSummary, valuesInViewport } from "./chart-analysis";
+import { channelStatistics, countEvents, eventsNearCursor, hasSamplesInViewport, lowerBound, nearestPoint, statistics, therapyWindowEventSummary, valuesInViewport } from "./chart-analysis";
 import { EVENT_PRESENTATION } from "./event-presentation";
 import type { GraphNavigation } from "./components/NightInspector";
+import { ChartEmptyState } from "./components/ChartEmptyState";
 
 type Viewport = { startMs: number; endMs: number };
 
@@ -449,6 +450,7 @@ function GraphPanel({ definition, series, interaction, pinned, height: storedHei
     <div className="graph-canvas-wrap" {...events}>
       <canvas ref={canvasRef} aria-label={`${definition.title} graph`} />
       <canvas ref={overlayRef} className="graph-cursor-overlay" aria-hidden="true" />
+      {!hasSamplesInViewport(series, interaction.viewport) && <ChartEmptyState className="absolute inset-0" />}
     </div>
     <div className="graph-resize-handle" role="separator" aria-orientation="horizontal" title="Drag to resize graph" onPointerDown={onResizePointerDown}><span /></div>
   </section>;
@@ -549,6 +551,7 @@ function EventFlags({ series, interaction, pinned, height: storedHeight, onToggl
     <div className="graph-canvas-wrap" {...events}>
       <canvas ref={canvasRef} aria-label="Event flags graph" />
       <canvas ref={overlayRef} className="graph-cursor-overlay" aria-hidden="true" />
+      {!hasSamplesInViewport(series, interaction.viewport) && <ChartEmptyState className="absolute inset-0" />}
     </div>
     <div className="graph-resize-handle" role="separator" aria-orientation="horizontal" title="Drag to resize graph" onPointerDown={onResizePointerDown}><span /></div>
   </section>;
@@ -749,7 +752,7 @@ export function GraphStack({ data, daily, navigation, bookmarkRevision = 0, onBo
     return { source, returned, decimated };
   }, [renderData.series]);
 
-  if (graphEntries.length === 0 && !hasEventChannels) return <div className="graph-empty">No detailed chart data is stored for this therapy day.</div>;
+  if (graphEntries.length === 0 && !hasEventChannels) return <ChartEmptyState className="graph-empty" />;
 
   return <div className="graph-stack">
     <div className="graph-toolbar">

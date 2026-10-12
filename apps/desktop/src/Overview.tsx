@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { OverviewDaySummary, StoredMachineSummary, TherapyHistoryDay } from "./types";
 import { TherapyDateRange } from "./TherapyDateRange";
-import { summarizeOverviewDays } from "./overview-summary";
+import { overviewChartRows, summarizeOverviewDays } from "./overview-summary";
 import { Card, MetricCard, CalculatingIndicator } from "./ui";
 import { BarChart } from "./components/tremor/BarChart";
 import { LineChart } from "./components/tremor/LineChart";
@@ -52,12 +52,7 @@ function TrendChart({ title, subtitle, days, series, kind = "line", threshold, u
   title: string; subtitle: string; days: OverviewDaySummary[]; series: SeriesDefinition[];
   kind?: "line" | "bar" | "stacked"; threshold?: number; unit?: string;
 }) {
-  const chartData = days.map(day => Object.fromEntries([
-    ["date", day.date], ...series.map(definition => {
-      const value = definition.getValue(day);
-      return [definition.label, value !== undefined && Number.isFinite(value) ? value : null];
-    }),
-  ]));
+  const chartData = overviewChartRows(days, series);
   const palette: Record<string, AvailableChartColorsKeys> = {
     "series-usage": "blue", "series-ahi": "blue", "series-rdi": "cyan",
     "series-oa": "violet", "series-ca": "cyan", "series-h": "blue", "series-ua": "gray", "series-rera": "amber",
@@ -76,7 +71,7 @@ function TrendChart({ title, subtitle, days, series, kind = "line", threshold, u
   };
   return <Card className="overview-chart-card border-[var(--border)] bg-[var(--surface)] p-5 shadow-none dark:border-[var(--border)] dark:bg-[var(--surface)]">
     <div className="mb-4"><h2 className="text-sm font-semibold">{title}</h2><p className="mt-1 text-xs text-[var(--muted)]">{subtitle}</p></div>
-    {days.length ? kind === "line" ? <LineChart {...shared} connectNulls={false} /> : <BarChart {...shared} type={kind === "stacked" ? "stacked" : "default"} /> : <div className="graph-empty">No values in this range</div>}
+    {kind === "line" ? <LineChart {...shared} connectNulls={false} /> : <BarChart {...shared} type={kind === "stacked" ? "stacked" : "default"} />}
   </Card>;
 }
 
@@ -176,13 +171,13 @@ export function Overview({ machine, machineId, defaultEndDate, toolbarTarget }: 
       {(["usage", "ahi", "events", "pressure", "leak"] as const).map((metric) => <button key={metric} className={activeMetric === metric ? "active" : "secondary"} onClick={() => { setActiveMetric(metric); document.getElementById(`overview-${metric}`)?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>{metric === "ahi" ? "AHI / RDI" : metric[0]?.toUpperCase() + metric.slice(1)}</button>)}
     </section>
 
-    {days.length === 0 && !loading ? <section className="empty"><h2>No therapy data in this range</h2><p>Choose another date range or machine.</p></section> : <section className="overview-grid">
+    <section className="overview-grid">
       <div id="overview-usage"><TrendChart title="Usage" subtitle="Hours of mask-on therapy per night" days={days} series={usageSeries} kind="bar" threshold={4} unit="h" /></div>
       <div id="overview-ahi"><TrendChart title="AHI / RDI" subtitle="Respiratory events per therapy hour" days={days} series={ahiSeries} threshold={5} unit="/h" /></div>
       <div id="overview-events"><TrendChart title="Event Indices" subtitle="OA, CA, hypopnea, unclassified and RERA events per therapy hour" days={days} series={eventSeries} kind="stacked" unit="/h" /></div>
       <div id="overview-pressure"><TrendChart title="Pressure" subtitle="Nightly average and 95th-percentile therapy pressure" days={days} series={pressureSeries} unit="cmH₂O" /></div>
       <div id="overview-leak"><TrendChart title="Leak Rate" subtitle="Nightly average and 95th-percentile leak" days={days} series={leakSeries} unit="L/min" /></div>
-    </section>}
+    </section>
     </>}
   </>;
 }

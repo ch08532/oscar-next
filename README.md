@@ -176,7 +176,7 @@ Implemented:
   - second event fields where used
   - per-machine session identity (session IDs may repeat across different machines)
   - transactional complete-snapshot updates, preventing duplicate sessions on re-import
-  - schema version tracking (current schema v5) and WAL mode
+  - schema version tracking (current schema v6) and WAL mode
 - Read-only Daily/Overview query API on top of SQLite:
   - explicit noon-to-noon therapy-day ranges
   - Daily session list and usage hours
@@ -197,6 +197,7 @@ Implemented:
   - database file picker and machine selection
   - read-only Daily screen
   - dates with no imported sessions show a clear empty-day message and a shortcut to the latest night instead of zero-filled Daily metrics and graphs
+  - Daily graphs, Overview charts, and the therapy timeline show “No data” for empty results; missing readings and dates without included sessions are chart gaps, while valid zero measurements remain visible
   - usage, AHI/RDI, event counts, pressure/leak 95th-percentile cards
   - session table
   - Canvas-based Flow Rate, Pressure, Leak, SpO₂, Pulse, and Event Flags graphs
@@ -536,6 +537,18 @@ machines
 ```
 
 A session's public OSCAR-style ID is unique within its machine. SQLite uses an internal `row_id` for foreign keys so different machines can safely contain the same session ID.
+
+Schema v6 removes a redundant event-list index; the existing UNIQUE index keeps
+session/channel lookups and cascading deletes indexed. Daily and chart queries
+filter channels in SQLite before returning payloads, and event counts read only
+timestamp deltas. See [SQLITE-PERFORMANCE-REVIEW.md](SQLITE-PERFORMANCE-REVIEW.md)
+for query plans, migration validation, synthetic benchmarks, and summary-cache
+recommendations. To run the synthetic-only benchmark (temporary data is removed):
+
+```powershell
+npm run build
+node scripts/sqlite-performance.mjs
+```
 
 ## Design rules
 

@@ -1,5 +1,18 @@
 import type { OverviewDaySummary } from "./types.js";
 
+export function overviewChartRows(days: readonly OverviewDaySummary[], series: readonly {
+  label: string;
+  getValue(day: OverviewDaySummary): number | undefined;
+}[]): Record<string, string | number | null>[] {
+  return days.map((day) => Object.fromEntries([
+    ["date", day.date], ...series.map((definition) => {
+      // Empty calendar days have zero summary defaults, not measured readings.
+      const value = day.sessionCount > 0 ? definition.getValue(day) : undefined;
+      return [definition.label, value !== undefined && Number.isFinite(value) ? value : null];
+    }),
+  ]));
+}
+
 export function filterOverviewDays(history: readonly OverviewDaySummary[], startDate: string, endDate: string): OverviewDaySummary[] {
   return history.filter((day) => day.date >= startDate && day.date <= endDate);
 }

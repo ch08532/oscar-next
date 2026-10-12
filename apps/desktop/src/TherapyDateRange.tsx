@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useRef, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { clampRangeOffset, dateAtOffset, dayOffset, keyboardRangeOffset, presetDateRange, rangeHandleOffset, type RangeEdge } from "./overview-date-range";
 import type { TherapyHistoryDay } from "./types";
+import { ChartEmptyState } from "./components/ChartEmptyState";
 
 type Edge = RangeEdge;
 
@@ -76,7 +77,7 @@ export function TherapyDateRange({ firstDate, lastDate, startDate, endDate, days
     </div>
     <p id="overview-date-help" className={toolbarTarget ? "sr-only" : undefined}>Drag either handle to select dates, or use the arrow keys. Marks show included sessions, including summary-only nights.</p>
     <div ref={track} className={`overview-date-track${start === end ? " single-day" : ""}`}>
-      <div className="overview-date-selection" style={{ left: `${percent(start)}%`, width: `${percent(end) - percent(start)}%` }} />
+      {(loading || dataDays.length > 0) && <div className="overview-date-selection" style={{ left: `${percent(start)}%`, width: `${percent(end) - percent(start)}%` }} />}
       <svg className="overview-date-marks" viewBox="0 0 1000 48" preserveAspectRatio="none" role="img" aria-label="Days with included therapy sessions">
         {days.map((day) => {
           const offset = dayOffset(firstDate, day.date);
@@ -87,6 +88,7 @@ export function TherapyDateRange({ firstDate, lastDate, startDate, endDate, days
           </rect>;
         })}
       </svg>
+      {!loading && dataDays.length === 0 && <ChartEmptyState className="absolute inset-0" />}
       {(["start", "end"] as const).map((edge) => <button key={edge} type="button" role="slider" className={`overview-date-handle ${edge}`} disabled={disabled}
         aria-label={edge === "start" ? "Start therapy date" : "End therapy date"} aria-describedby="overview-date-help"
         aria-valuemin={edge === "start" ? 0 : start} aria-valuemax={edge === "start" ? end : last}

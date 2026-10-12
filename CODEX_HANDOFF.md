@@ -107,7 +107,8 @@ ResMed SD card / copied card folder
 
 - `src/storage/database.ts`
 - `src/storage/queries.ts`
-- current SQLite schema version: **v5**
+- current SQLite schema version: **v6**
+- SQLite index/query review and synthetic benchmark: `SQLITE-PERFORMANCE-REVIEW.md`
 
 ### Reports / diagnostics
 

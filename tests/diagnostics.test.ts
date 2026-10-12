@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { OscarDatabase } from "../src/storage/database.js";
+import { OscarDatabase, SCHEMA_VERSION } from "../src/storage/database.js";
 import { createDiagnosticBundle } from "../src/desktop/diagnostics.js";
 
 function archiveText(data: Uint8Array): string { return new TextDecoder().decode(data); }
@@ -20,7 +20,7 @@ test("diagnostic bundle excludes profile names, database path, and therapy data"
     const bundle = await createDiagnosticBundle({ appVersion: "1.9.0", databasePath: dbPath, logFilePath: logPath, generatedAt: new Date("2026-10-10T00:00:00Z"), nodeVersion: "v22-test", electronVersion: "test" });
     const text = archiveText(bundle);
     assert.ok(text.includes('"appVersion": "1.9.0"'));
-    assert.ok(text.includes('"schemaVersion": 5'));
+    assert.ok(text.includes(`"schemaVersion": ${SCHEMA_VERSION}`));
     assert.ok(text.includes('"therapyDataIncluded": false'));
     assert.ok(text.includes('"profileCount": 1'));
     assert.ok(!text.includes("Sensitive Chris"));

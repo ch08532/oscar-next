@@ -5,7 +5,7 @@ import { EventListType } from "../core/event-list.js";
 import { MachineType, type MachineId, type MachineInfo, type SettingValue } from "../core/types.js";
 import { isValidIanaTimeZone, systemTimeZone } from "../core/device-time.js";
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 const WAVEFORM_CHUNK_MS = 60_000;
 
 type SqlPrimitive = string | number | bigint | Uint8Array | null;
@@ -659,7 +659,6 @@ export class OscarDatabase {
         time_deltas_blob BLOB,
         UNIQUE(session_row_id, channel_id, list_index)
       );
-      CREATE INDEX IF NOT EXISTS idx_event_lists_session_channel ON event_lists(session_row_id, channel_id);
 
       CREATE TABLE IF NOT EXISTS waveform_chunks (
         event_list_id INTEGER NOT NULL REFERENCES event_lists(id) ON DELETE CASCADE,
@@ -719,8 +718,13 @@ export class OscarDatabase {
       }
     }
     if (existingVersion < 2) this.#migrateWaveformChunks();
-    if (!versionRow) this.#db.prepare("INSERT INTO schema_version(version) VALUES (?)").run(SCHEMA_VERSION);
-    else if (existingVersion !== SCHEMA_VERSION) this.#db.prepare("UPDATE schema_version SET version = ?").run(SCHEMA_VERSION);
+    if (!versionRow || existingVersion !== SCHEMA_VERSION) this.#transaction(() => {
+      // The UNIQUE(session_row_id, channel_id, list_index) index already covers
+      // this lookup prefix and the cascading session foreign key.
+      if (existingVersion < 6) this.#db.exec("DROP INDEX IF EXISTS idx_event_lists_session_channel;");
+      if (!versionRow) this.#db.prepare("INSERT INTO schema_version(version) VALUES (?)").run(SCHEMA_VERSION);
+      else if (existingVersion !== SCHEMA_VERSION) this.#db.prepare("UPDATE schema_version SET version = ?").run(SCHEMA_VERSION);
+    });
   }
 
   #saveWaveformChunks(eventListId: number, firstMs: number, rateMs: number, raw: Int16Array): void {
