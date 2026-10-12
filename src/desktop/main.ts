@@ -95,6 +95,8 @@ async function createWindow(): Promise<void> {
     height: 960,
     minWidth: 1000,
     minHeight: 700,
+    autoHideMenuBar: process.platform === "win32",
+    icon: join(app.isPackaged ? app.getAppPath() : join(moduleDir, "../../../apps/desktop"), "assets", process.platform === "win32" ? "icon.ico" : "icon.png"),
     webPreferences: {
       preload: join(moduleDir, "preload.cjs"),
       contextIsolation: true,

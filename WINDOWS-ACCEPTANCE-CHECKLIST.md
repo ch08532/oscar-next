@@ -6,6 +6,8 @@ Use this after running `scripts\windows-dev.ps1` or installing the locally built
 
 - [ ] OSCAR Next starts without a console/error dialog.
 - [ ] Header displays version `2.3.0`.
+- [ ] Native menu bar is hidden at startup; pressing Alt reveals it.
+- [ ] Window/taskbar and installed shortcuts use the OSCAR Next blue pulse icon.
 - [ ] Starting OSCAR Next a second time focuses the existing window rather than opening another database instance.
 
 ## 2. First-run demo

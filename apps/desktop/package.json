@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "icons:generate": "electron scripts/generate-icons.cjs",
     "dev": "vite",
     "build": "vite build",
     "electron": "electron ../..",

@@ -1,5 +1,44 @@
 # OSCAR Next 2.3.0 Windows validation — 2026-10-10
 
+## Native menu follow-up — 2026-10-12
+
+- Windows 11 x64 (OS 10.0.26200), Node v24.21.0, npm 11.19.0,
+  Electron 37.10.3.
+- Windows desktop windows now use Electron's `autoHideMenuBar` option; the
+  native menu remains installed and Alt reveals it. Other platforms retain
+  their existing menu behavior.
+- `npm run verify` baseline: PASS, 140 tests and synthetic demo smoke.
+- `npm test`: PASS, 140 tests. `npm --prefix apps/desktop run build`: PASS.
+- `node .validation/run-menu-bar-check.mjs`: PASS. Launched the actual updated
+  desktop entry point with isolated empty user data; confirmed
+  `isMenuBarAutoHide()` is true, `isMenuBarVisible()` is false, and the native
+  application menu remains installed. The temporary process exited afterward.
+- Physical Alt-key interaction remains a manual acceptance check.
+
+## Application icon follow-up — 2026-10-12
+
+- Same Windows/Node/npm/Electron environment as the native menu follow-up.
+- Replaced the older SVG/PNG/ICO artwork with the sidebar's blue Lucide Activity
+  mark. Added its ISC attribution and an Electron/Chromium rasterization helper:
+  `npm --prefix apps/desktop run icons:generate`.
+- Electron's main window explicitly loads the Windows ICO or Linux PNG from
+  the development assets directory or packaged application assets. Existing
+  electron-builder settings already include those assets and use the ICO for
+  Windows packaging and PNG for Linux packaging.
+- Baseline `npm run verify`: PASS, 140 tests and demo smoke. Final `npm test`:
+  PASS, 140 tests. `npm --prefix apps/desktop run build`: PASS.
+- `node .validation/run-app-icon-check.mjs`: PASS. Launched the actual desktop
+  entry point with isolated empty user data; queried the window's native icon
+  through Windows `WM_GETICON`, captured it, and visually confirmed the blue
+  pulse artwork. The helper also decoded the 512px PNG and all seven ICO frames
+  (16, 24, 32, 48, 64, 128, 256px). The temporary process exited afterward.
+- An initial validation helper blocked Electron's event loop while querying
+  its native window; switching the helper to asynchronous execution resolved
+  this. Windows icon conversion rounds RGB channels by one, accounted for in
+  the helper's color check. No application startup failure remained.
+- Installer/executable shortcut icons were not rebuilt or manually checked;
+  Linux runtime validation was not performed on this Windows machine.
+
 ## Environment and scope
 
 - Windows x64 development machine: OS 10.0.26200, registry build 26200.9457,

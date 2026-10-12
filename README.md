@@ -341,6 +341,12 @@ The fixture test verifies media detection, product identity, structural import, 
 
 The desktop shell lives in `apps/desktop`, while Electron main/preload code lives in `src/desktop` so it can call the tested backend directly.
 
+On Windows, the native menu bar is hidden by default. Press **Alt** to reveal it.
+The desktop window and packaged application use the sidebar's blue pulse icon.
+Its SVG source and PNG/ICO assets live in `apps/desktop/assets`; regenerate the
+raster assets with `npm --prefix apps/desktop run icons:generate` after editing
+the SVG.
+
 Install the desktop-only packages once:
 
 ```bash
