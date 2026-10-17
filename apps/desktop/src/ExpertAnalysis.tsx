@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Settings } from "lucide-react";
 import { Card } from "./ui";
 import { ExpertReview } from "./ExpertReview";
 import { ExpertMarkdown } from "./components/expert/ExpertMarkdown";
-import { ExpertComposer } from "./components/expert/ExpertComposer";
+import { ExpertComposer, ExpertConversationActions } from "./components/expert/ExpertComposer";
 import type { EvidenceReference, ReviewResult } from "../../../src/expert/schemas.js";
 import { dailyIntents, trendIntents, compareIntents, type AIRequest, type AIJob, type AIProviderId } from "../../../src/ai/contracts.js";
 import { lastNight, presetRange, comparisonPreset, shiftDate } from "../../../src/ai/analysis.js";
 
 type Mode="Daily"|"Trend"|"Compare"|"Ask Anything";
 const title=(value:string)=>value.split("_").map(word=>word==="ahi"?"AHI":word[0]!.toUpperCase()+word.slice(1)).join(" ");
-export function ExpertAnalysis({profileId,machineId,date,provider,ready=true,onBusyChange,onEvidence}:{profileId:number;machineId:number;date:string;provider:AIProviderId;ready?:boolean;onBusyChange(busy:boolean):void;onEvidence(evidence:EvidenceReference):void}){
+export function ExpertAnalysis({profileId,machineId,date,provider,toolbarTarget,ready=true,settingsMessage,onSettings,onEvidence}:{profileId:number;machineId:number;date:string;provider:AIProviderId;toolbarTarget?:HTMLElement|null;ready?:boolean;settingsMessage?:string;onSettings():void;onEvidence(evidence:EvidenceReference):void}){
   const [mode,setMode]=useState<Mode>("Daily"),[selectedDate,setSelectedDate]=useState(date),[days,setDays]=useState("30");
   const [range,setRange]=useState(()=>presetRange(lastNight(),30));const [periods,setPeriods]=useState(()=>comparisonPreset(lastNight(),7));
   const [message,setMessage]=useState(""),[conversationId,setConversationId]=useState<string>(),[job,setJob]=useState<AIJob>();
@@ -17,7 +19,6 @@ export function ExpertAnalysis({profileId,machineId,date,provider,ready=true,onB
   const [starting,setStarting]=useState(false);
   const [hasData,setHasData]=useState<boolean>();const active=useRef<{id:string;cursor:number}|undefined>(undefined);const alive=useRef(true);const submitting=useRef(false);
   const scope={profileId,machineId};const busy=job?.state==="running";
-  useEffect(()=>{onBusyChange(busy||starting);},[busy,starting,onBusyChange]);
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;if(active.current)void window.oscar.cancelAI(active.current.id,{profileId,machineId}).catch(()=>{});};},[profileId,machineId]);
   useEffect(()=>{let cancelled=false;setHasData(undefined);void window.oscar.getTherapyHistory(machineId,selectedDate,selectedDate).then(data=>{if(!cancelled)setHasData(data.some(day=>day.usageHours>0));}).catch(()=>{if(!cancelled)setHasData(undefined);});return()=>{cancelled=true;};},[machineId,selectedDate]);
   function receive(next:AIJob){
@@ -31,8 +32,17 @@ export function ExpertAnalysis({profileId,machineId,date,provider,ready=true,onB
   function guided(intent:string){const context={...scope,...(conversationId?{conversationId}:{})};const request=mode==="Daily"?{...context,type:"analysis",dateMode:"single",date:selectedDate,intent}:mode==="Trend"?{...context,type:"analysis",dateMode:"range",...range,intent}:{...context,type:"analysis",dateMode:"compare",...periods,intent};const dates=mode==="Daily"?selectedDate:mode==="Trend"?`${range.startDate} – ${range.endDate}`:`${periods.periodA.startDate} – ${periods.periodA.endDate} vs ${periods.periodB.startDate} – ${periods.periodB.endDate}`;void start(request as AIRequest,`${title(intent)} · ${dates}`);}
   async function clear(all=false){try{await window.oscar.clearAIHistory(scope,all?undefined:conversationId);setConversationId(undefined);setEntries([]);setJob(undefined);active.current=undefined;setError("");setStatus("");}catch{setError("Could not clear AI history");}}
   const dateInput=(label:string,value:string,change:(v:string)=>void)=><label className="text-sm">{label}<input className="ml-2" type="date" value={value} onChange={e=>change(e.target.value)}/></label>;
-  return <div className="expert-analysis">
-    <Card className="expert-criteria p-3 sm:p-4" role="region" aria-label="AI analysis criteria" tabIndex={0}><div className="flex flex-wrap gap-2" role="group" aria-label="Analysis mode">{(["Daily","Trend","Compare","Ask Anything"] as Mode[]).map(value=><button className={mode===value?"":"secondary"} key={value} aria-pressed={mode===value} disabled={busy} onClick={()=>setMode(value)}>{value}</button>)}</div>
+  const criteria=<section className="expert-criteria" aria-label="AI analysis criteria" tabIndex={0}>
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <h2 className="m-0 text-sm font-semibold">AI analysis criteria</h2>
+        <span className="expert-provider-badge" aria-label={`Current AI provider: ${provider==="ollama"?"Local Ollama":provider==="groq"?"Groq":"OpenAI"}`}>{provider==="ollama"?"Local Ollama":provider==="groq"?"Groq":"OpenAI"}</span>
+        <button className="icon-button" type="button" title="Configure AI in Settings" aria-label="Configure AI in Settings" disabled={busy||starting} onClick={onSettings}><Settings size={16}/></button>
+        <ExpertConversationActions conversationActive={!!conversationId} busy={busy} starting={starting}
+          onNewConversation={()=>{setConversationId(undefined);setEntries([]);setError("");setStatus("");}}
+          onClearConversation={()=>void clear()} onClearHistory={()=>void clear(true)} />
+      </div>
+      {settingsMessage&&<p className="mb-2 mt-0 text-xs text-[var(--muted)]" role="status">{settingsMessage}</p>}
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Analysis mode">{(["Daily","Trend","Compare","Ask Anything"] as Mode[]).map(value=><button className={mode===value?"":"secondary"} key={value} aria-pressed={mode===value} disabled={busy} onClick={()=>setMode(value)}>{value}</button>)}</div>
       <fieldset className="mt-3 space-y-3" disabled={busy||starting||!ready}>
       {mode==="Daily"&&<><div className="flex flex-wrap gap-3 items-center">{dateInput("Date",selectedDate,setSelectedDate)}<button className="secondary" onClick={()=>setSelectedDate(lastNight())}>Last Night</button></div><p className="text-sm text-[var(--muted)]">{hasData===false?"No included session on this date. Select another therapy date.":hasData?"Included OSCAR therapy data available.":"Checking data availability…"}</p></>}
       {mode==="Trend"&&<><label>Period<select className="ml-2" value={days} onChange={e=>{setDays(e.target.value);if(e.target.value!=="custom")setRange(presetRange(lastNight(),Number(e.target.value)));}}>{[7,14,30,90].map(n=><option key={n} value={n}>Last {n} days</option>)}<option value="custom">Custom Range</option></select></label><div className="flex flex-wrap gap-4">{dateInput("From",range.startDate,value=>{setDays("custom");setRange({...range,startDate:value});})}{dateInput("To",range.endDate,value=>{setDays("custom");setRange({...range,endDate:value});})}</div></>}
@@ -40,7 +50,9 @@ export function ExpertAnalysis({profileId,machineId,date,provider,ready=true,onB
       {mode!=="Ask Anything"&&<div className="flex flex-wrap gap-2">{(mode==="Daily"?dailyIntents:mode==="Trend"?trendIntents:compareIntents).map(intent=><button className="secondary" key={intent} disabled={mode==="Daily"&&hasData!==true} onClick={()=>guided(intent)}>{title(intent)}</button>)}</div>}
       {mode==="Ask Anything"&&!conversationId&&<div>{dateInput("Question range from",range.startDate,value=>setRange({...range,startDate:value}))} {dateInput("to",range.endDate,value=>setRange({...range,endDate:value}))}</div>}
       </fieldset>
-    </Card>
+    </section>;
+  return <div className="expert-analysis">
+    {toolbarTarget?createPortal(criteria,toolbarTarget):criteria}
     <Card className="expert-conversation p-3 sm:p-4">
       <div className="expert-conversation-scroll space-y-5" role="log" aria-label="Expert conversation" tabIndex={0}>
         {!entries.length&&<p className="text-sm text-[var(--muted)]">Choose an analysis above or ask a question below to start a conversation.</p>}
@@ -56,10 +68,7 @@ export function ExpertAnalysis({profileId,machineId,date,provider,ready=true,onB
       <ExpertComposer message={message} onMessageChange={setMessage} maxLength={provider==="ollama"?2000:4000}
         conversationActive={!!conversationId} busy={busy} starting={starting} ready={ready}
         onSend={text=>{if(submitting.current||busy||starting||!ready)return;setMessage("");void start({...scope,type:"chat",dateMode:"chat",message:text,...(conversationId?{conversationId}:{range})},text);}}
-        onStop={()=>{if(active.current)void window.oscar.cancelAI(active.current.id,scope).catch(()=>setError("Could not cancel; check the backend connection"));}}
-        onNewConversation={()=>{setConversationId(undefined);setEntries([]);setError("");setStatus("");}}
-        onClearConversation={()=>void clear()} onClearHistory={()=>void clear(true)} />
-      <p className="mt-3 text-xs text-[var(--muted)]">Educational analysis, not a diagnosis. Cannot modify OSCAR data or CPAP settings. History is temporary and kept locally by the backend.</p>
+        onStop={()=>{if(active.current)void window.oscar.cancelAI(active.current.id,scope).catch(()=>setError("Could not cancel; check the backend connection"));}} />
     </Card>
   </div>;
 }

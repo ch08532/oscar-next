@@ -52,6 +52,7 @@ export function App({ deployment = "desktop" }: { deployment?: "desktop" | "brow
   const { theme, setTheme } = useTheme();
   const { provider: aiProvider, selectProvider: selectAIProvider } = useAIProvider();
   const [historyToolbar, setHistoryToolbar] = useState<HTMLDivElement | null>(null);
+  const [expertToolbar, setExpertToolbar] = useState<HTMLDivElement | null>(null);
   const headerRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const header = headerRef.current;
@@ -295,6 +296,7 @@ export function App({ deployment = "desktop" }: { deployment?: "desktop" | "brow
         </div>
         </div>
         {(view === "overview" || view === "statistics") && <div ref={setHistoryToolbar} className="history-toolbar w-full min-w-0 border-t border-[var(--border)] px-5 pt-2 pb-3 max-[1150px]:px-3.5" />}
+        {view === "expert" && activeProfile && machineId !== undefined && <div ref={setExpertToolbar} className="expert-toolbar w-full min-w-0 border-t border-[var(--border)] px-5 pt-2 pb-3 max-[1150px]:px-3.5" />}
       </header>
       <div className={`workspace-body ${showInspector ? "with-inspector" : ""}`}>
       <main id="workspace" className={`workspace-content min-w-0 px-5 pt-[18px] ${view==="expert"?"pb-3.5":"pb-10"} max-[1150px]:p-3.5`} tabIndex={-1}>
@@ -318,7 +320,7 @@ export function App({ deployment = "desktop" }: { deployment?: "desktop" | "brow
         </>}
         {view === "overview" && machine && machineId !== undefined && <Suspense fallback={<div className="loading" role="status">Loading analytics…</div>}><Overview machine={machine} machineId={machineId} defaultEndDate={date} toolbarTarget={historyToolbar} /></Suspense>}
         {view === "statistics" && machine && machineId !== undefined && <Statistics machine={machine} machineId={machineId} defaultEndDate={date} toolbarTarget={historyToolbar} />}
-        {view === "expert" && activeProfile && machineId !== undefined && <Expert provider={aiProvider} key={activeProfile.id + ":" + machineId} profileId={activeProfile.id} machineId={machineId} date={date} onSettings={() => { setSettingsTab("ai"); setView("settings"); }} onEvidence={evidence => { if (evidence.profileId !== activeProfile.id || evidence.machineId !== machineId) { setError("Evidence belongs to a different selected scope"); return; } setDate(evidence.date ?? evidence.startDate ?? date); setDaily(undefined); setCharts(undefined); setPendingEvidence(evidence); setView("daily"); }} />}
+        {view === "expert" && activeProfile && machineId !== undefined && <Expert provider={aiProvider} toolbarTarget={expertToolbar} key={activeProfile.id + ":" + machineId} profileId={activeProfile.id} machineId={machineId} date={date} onSettings={() => { setSettingsTab("ai"); setView("settings"); }} onEvidence={evidence => { if (evidence.profileId !== activeProfile.id || evidence.machineId !== machineId) { setError("Evidence belongs to a different selected scope"); return; } setDate(evidence.date ?? evidence.startDate ?? date); setDaily(undefined); setCharts(undefined); setPendingEvidence(evidence); setView("daily"); }} />}
         {!["expert", "daily", "overview", "statistics", "sessions"].includes(view) && <AdminPages aiProvider={aiProvider} onAIProviderChange={selectAIProvider} settingsTab={settingsTab} onSettingsTabChange={setSettingsTab} view={view} machines={machines} machineId={machineId} profileId={activeProfile?.id} onSelectMachine={selectMachine} onProfiles={() => setShowProfileSettings(true)} onImport={chooseImportSource} onDiagnostics={() => void createDiagnostics()} onStatistics={() => setView("statistics")} appInfo={appInfo} deployment={deployment} theme={theme} onTheme={setTheme} />}
       </main>
       {showInspector && <button className="inspector-shade" aria-label="Dismiss Night Inspector" onClick={() => setInspectorOpen(false)} />}{showInspector && <NightInspector key={`${machineId}-${daily.date}`} daily={daily} charts={charts} onClose={() => setInspectorOpen(false)} onToggleSession={(id, enabled) => void setSessionEnabled(id, enabled)} onDate={setDate} bookmarks={graphBookmarks} onBookmarkDelete={id => { void window.oscar.deleteGraphBookmark(machineId, id).then(() => setBookmarkRevision(value => value + 1)).catch(cause => setError(String(cause))); }} onNavigate={(startMs, endMs) => setGraphNavigation({ startMs, endMs, requestId: Date.now() })} />}

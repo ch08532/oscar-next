@@ -480,16 +480,21 @@ tbody tr:hover { background:var(--surface-alt); }
 
 @layer components {
   .expert-workspace .workspace-shell { display:flex; flex-direction:column; height:100%; min-height:0; overflow:hidden; }
-  .expert-workspace .workspace-header { flex-shrink:0; }
+  .expert-workspace .workspace-header { display:flex; flex-direction:column; flex-shrink:0; min-height:0; max-height:calc(100% - min(340px,55dvh) - 36px); }
+  .expert-workspace .workspace-header-main { flex-shrink:0; }
   .expert-workspace .workspace-body { display:flex; align-items:stretch; flex:1; min-height:0; overflow:hidden; }
   .expert-workspace .workspace-content { display:flex; flex:1; flex-direction:column; min-height:0; overflow:hidden; }
   .expert-page { display:flex; flex:1; flex-direction:column; gap:12px; min-height:0; }
-  .expert-provider-summary { flex-shrink:0; padding-bottom:10px; border-bottom:1px solid var(--border); }
+  .expert-toolbar { min-height:0; max-height:40dvh; overflow:auto; }
+  .expert-provider-badge { display:inline-flex; align-items:center; padding:2px 8px; border:1px solid var(--border); border-radius:999px; background:var(--surface-alt); color:var(--muted); font-size:12px; line-height:1.5; }
   .expert-analysis { display:flex; flex:1; flex-direction:column; gap:12px; min-height:0; }
   .expert-criteria { flex:0 1 auto; min-height:0; max-height:40dvh; overflow:auto; }
   .expert-conversation { display:flex; flex:1 0 0; flex-direction:column; min-height:min(340px,55dvh); overflow:hidden; }
   .expert-conversation-scroll { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:4px 8px 12px 0; scrollbar-gutter:stable; }
-  .expert-composer { flex-shrink:0; padding-top:12px; border-top:1px solid var(--border); background:var(--surface); }
+  .expert-composer { flex-shrink:0; padding-top:8px; border-top:1px solid var(--border); background:var(--surface); }
+  .expert-composer-form { display:flex; align-items:stretch; gap:8px; }
+  .expert-composer-form textarea { display:block; min-height:60px; max-height:25dvh; resize:vertical; }
+  .expert-composer-form > button { align-self:stretch; }
   .expert-conversation > [role="status"]:empty { display:none; }
   .expert-conversation > [role="status"] { flex-shrink:0; margin:6px 0; }
   .expert-conversation > [role="alert"] { flex-shrink:0; margin:6px 0; }

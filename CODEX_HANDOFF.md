@@ -81,10 +81,17 @@ ResMed SD card / copied card folder
 
 ### OSCAR AI / OpenAI (2026-10-17)
 
-- `components/expert/ExpertComposer.tsx` owns the bottom message form and
-  conversation actions. Expert has a bounded viewport layout: provider/criteria
-  at the top, an independently scrolling conversation, and the composer below
+- `components/expert/ExpertComposer.tsx` owns the compact bottom message form and
+  exports conversation actions rendered in the top criteria section. The footer
+  disclaimer and visible keyboard hint are removed; the hint is a textarea tooltip
+  and accessible description. Send/Stop stretch to the textarea height.
+  Expert has a bounded viewport layout: analysis criteria
+  portaled into App's full-width section below the main header (matching the
+  history toolbar), an independently scrolling conversation, and the composer below
   the scroll region. Compact criteria panels can scroll internally.
+  An inline provider badge and accessible settings gear replace the provider
+  summary block; settings opens the AI tab. Header height is bounded to reserve
+  space for the conversation and composer on short windows.
   Enter requests normal form submission, Shift+Enter inserts a newline and IME
   composition/repeated Enter are guarded. Parent submission retains its duplicate
   request guard. UI tests cover keyboard and moved action callbacks.

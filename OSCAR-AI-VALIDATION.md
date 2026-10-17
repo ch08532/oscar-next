@@ -325,3 +325,51 @@ fixture runs used browser test-only no-sandbox flags. Application Electron
 sandbox settings were not changed. An ignored synthetic screenshot was inspected.
 Manual interaction in the running Electron application remains pending. No live
 AI calls, real therapy exports or clinical semantics changes were made.
+
+### Compact Expert provider and criteria toolbar — 2026-10-17
+
+- Replaced the separate provider summary with an inline provider badge and a
+  settings gear with an accessible label and native tooltip. Criteria render
+  through a portal into App's full-width section below the main header, using
+  the same placement as the history toolbar. Conversation/composer stay below.
+- Windows NT 10.0.26200.0; Node v24.21.0; npm 11.19.0; existing dependencies reused.
+- PASS: npm run verify (244 passed, two optional Ollama skips; demo smoke PASS),
+  npm --prefix apps/desktop run test:ui (10 passed),
+  npx tsc -p apps/desktop/tsconfig.json --noEmit,
+  npm --prefix apps/desktop run build, and
+  npm --prefix apps/desktop run build:headless. Existing Zod annotation and
+  bundle-size warnings remain. git diff --check passed.
+- PASS: ignored synthetic Chrome layout fixture at 1440x900 Daily/Compare dark,
+  800x700 Daily light and 390x844 Compare dark; fixture relocates SSR criteria
+  into the header section to represent the portal's browser placement.
+  Conversation scrolls independently and bottom controls remain visible.
+  Screenshot inspected. Fixture uses previously documented browser-only sandbox
+  flags; application security is unchanged.
+- PENDING: manual running-app interaction. No live AI calls or real therapy data.
+
+### Compact Expert message composer — 2026-10-17
+
+- Removed the footer disclaimer and visible keyboard-hint row. The shortcut
+  remains available as a textarea tooltip and accessible description. Moved New
+  Conversation, Clear Conversation and Clear All AI History into the criteria
+  heading row. Send/Stop stretch to the textarea height; resize is bounded.
+- PASS: npm --prefix apps/desktop run test:ui (10 tests),
+  npx tsc -p apps/desktop/tsconfig.json --noEmit,
+  npm --prefix apps/desktop run build, and
+  npm --prefix apps/desktop run build:headless. Existing Zod/chunk warnings remain.
+- PASS: synthetic Chrome fixtures at 1440x900 Daily/Compare dark, 800x700 Daily
+  light, and 390x844 Compare dark. Composer is 69px high; textarea and Send both
+  measure 60px. Actions are in the criteria section and output scrolls independently.
+  Desktop Daily conversation height increased from about 249px to 334px with
+  the same fixture. Screenshot inspected. No live AI or real therapy data used.
+- Initial npm run verify failed in timing-sensitive backend checks, including
+  tunnel recovery, SSE batch count and an Ollama request timeout. No backend
+  implementation changed in this UI task. Post-build rerun recorded separately.
+- Manual running-app interaction remains pending. Existing dependencies reused;
+  Windows NT 10.0.26200.0, Node v24.21.0, npm 11.19.0.
+- Post-build npm run verify: 242 passed, two optional skips, two tunnel-recovery
+  timing assertions failed (unexpected exits and unhealthy startup recovery).
+  Both passed in isolation via node --test --test-name-pattern
+  'Tunnel unexpected exits|An unhealthy tunnel' dist/tests/ai.test.js (2/2).
+  Full verify is not green. Standalone node dist/src/cli/main.js demo-smoke: PASS.
+  git diff --check: PASS. No backend or timing-test code was changed.

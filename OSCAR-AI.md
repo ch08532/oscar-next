@@ -9,10 +9,14 @@ conversation ID. All providers use read-only OSCAR tools and cannot change CPAP 
 Conversation questions appear in right-aligned bubbles, with Expert answers
 left-aligned below them. This shared layout supports desktop and browser,
 streaming answers and structured local review/evidence cards.
-The provider summary and analysis criteria stay at the top of the Expert
-workspace. Only the conversation pane scrolls through messages. The message box
-and New Conversation, Clear Conversation and Clear All AI History actions stay
-at the bottom, outside that scrolling pane. On compact windows, long criteria
+Analysis criteria appear in a fixed full-width section below the main page
+header, matching Therapy history in Overview and Statistics. An inline badge
+shows the current provider; the gear icon opens Settings → AI and has a
+"Configure AI in Settings" tooltip. Only the conversation pane scrolls through messages. The message box
+stays at the bottom with a Send button matching its height; Stop is available
+while an answer runs. New Conversation, Clear Conversation and Clear All AI
+History are in the top criteria section. The keyboard hint appears as a tooltip
+on the message box. On compact windows, long criteria
 can scroll within their fixed panel so all controls remain accessible.
 **Enter** sends; **Shift+Enter**
 adds a new line. Confirming composed input does not send the message.
@@ -37,8 +41,8 @@ Selecting a provider enables it automatically when its settings load; there is
 no separate provider enable checkbox. Existing model, key and connection values
 are preserved. Selecting a provider does not start inference or waive connection
 or compatibility requirements.
-Expert uses that choice and displays the active provider with a **Configure AI
-in Settings** shortcut.
+Expert uses that choice and displays the active provider badge with a settings
+gear shortcut.
 Settings also groups appearance under **General**, device analysis and graph
 preferences under **Therapy & graphs**, and deployment information under
 **Connection**. Unsaved form values are preserved while switching Settings tabs.

@@ -3,12 +3,12 @@ import { before, after, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
 
-let server, ExpertComposer;
+let server, ExpertComposer, ExpertConversationActions;
 before(async () => {
   server = await createServer({ configFile: false, root: fileURLToPath(new URL("..", import.meta.url)),
     appType: "custom", server: { middlewareMode: true, hmr: false, ws: false },
     esbuild: { jsx: "automatic" }, optimizeDeps: { noDiscovery: true, include: [] } });
-  ({ ExpertComposer } = await server.ssrLoadModule("/src/components/expert/ExpertComposer.tsx"));
+  ({ ExpertComposer, ExpertConversationActions } = await server.ssrLoadModule("/src/components/expert/ExpertComposer.tsx"));
 });
 after(async () => { await server?.close(); });
 
@@ -20,9 +20,7 @@ function fixture(overrides = {}) {
   const sent = [], actions = [];
   const nodes = descendants(ExpertComposer({ message: "  Synthetic question  ", maxLength: 4000,
     conversationActive: true, ready: true, busy: false, starting: false,
-    onSend: value => sent.push(value), onMessageChange: () => {}, onStop: () => actions.push("stop"),
-    onNewConversation: () => actions.push("new"), onClearConversation: () => actions.push("clear"),
-    onClearHistory: () => actions.push("history"), ...overrides }));
+    onSend: value => sent.push(value), onMessageChange: () => {}, onStop: () => actions.push("stop"), ...overrides }));
   const form = nodes.find(node => node.type === "form"), textarea = nodes.find(node => node.type === "textarea");
   function enter(options = {}) {
     let prevented = false, submitted = false;
@@ -62,14 +60,21 @@ test("Blank, busy, starting and unavailable composers never send; holding Enter 
   assert.deepEqual(sent, []);
 });
 
-test("Conversation actions and Stop keep their callbacks and do not submit the message", () => {
+test("Stop stays in the composer; conversation actions keep their callbacks in the top section", () => {
   const { nodes, sent, actions } = fixture({ busy: true });
-  for (const label of ["Stop", "Clear Conversation", "Clear All AI History"]) {
-    const button = nodes.find(node => node.type === "button" && node.props.children === label);
+  const topActions = descendants(ExpertConversationActions({ busy: true, starting: false, conversationActive: true,
+    onNewConversation: () => actions.push("new"), onClearConversation: () => actions.push("clear"),
+    onClearHistory: () => actions.push("history") }));
+  const stop = nodes.find(node => node.type === "button" && node.props.children === "Stop");
+  assert.equal(stop.props.type, "button");
+  stop.props.onClick();
+  for (const label of ["Clear Conversation", "Clear All AI History"]) {
+    assert.equal(nodes.some(node => node.type === "button" && node.props.children === label), false);
+    const button = topActions.find(node => node.type === "button" && node.props.children === label);
     assert.equal(button.props.type, "button");
     button.props.onClick();
   }
   assert.deepEqual(actions, ["stop", "clear", "history"]);
   assert.deepEqual(sent, []);
-  assert.equal(nodes.find(node => node.type === "button" && node.props.children === "New Conversation").props.disabled, true);
+  assert.equal(topActions.find(node => node.type === "button" && node.props.children === "New Conversation").props.disabled, true);
 });
