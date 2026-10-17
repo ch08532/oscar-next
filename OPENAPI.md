@@ -1,5 +1,49 @@
 # OSCAR Next REST / OpenAPI API
 
+## OSCAR AI
+
+Expert uses this shared job/conversation contract for all providers. Supply
+`provider: "ollama"`, `"openai"` or `"groq"` when starting an analysis. Local Ollama requires
+only the existing Expert settings and model compatibility; it does not read
+OpenAI credentials or require a tunnel. Omitted providers inherit a conversation's
+provider, or default to OpenAI for compatibility with earlier clients. A provider
+change with an existing conversation ID is rejected; start a new conversation.
+Responses include the selected provider. Local results add a `review` event
+containing the validated ExpertResult, preserving evidence links and timings.
+Local progress streams, while validated review content appears only on completion.
+OpenAI configuration/status/tunnel endpoints below retain their existing behavior.
+Groq uses its separate settings/key and backend-managed read-only tool calls;
+no tunnel or public MCP listener is required. Groq text streams through the same
+event contract. Its synthetic connection test performs a small inference request
+without therapy data. See [Groq](GROQ.md) for account retention controls.
+
+The shared AI UI uses the endpoints below. They obey existing bearer authentication
+and reject cross-origin requests. OpenAI keys and tunnel runtime credentials are
+write-only. Configuration is application state, not a clinical schema change.
+
+| Route | Behavior |
+| --- | --- |
+| `GET/PUT /api/v1/ai/settings` | Safe settings/configured flags; replace/remove credentials |
+| `GET/PUT /api/v1/ai/groq/settings` | Separate Groq settings and write-only key; configured flag only on reads |
+| `POST /api/v1/ai/groq/check` | Synthetic Groq model/function-calling test; returns connected/message |
+| `GET /api/v1/ai/groq/models` | Active Groq model IDs using the saved backend key; no inference or therapy data; listing does not verify chat/tool support or model permissions |
+| `GET /api/v1/ai/status` | Monitored tunnel, MCP tools and last OpenAI test status |
+| `POST /api/v1/ai/check` | `{component: all/openai/mcp/tunnel}` diagnostic checks |
+| `POST /api/v1/ai/tunnel/restart` | Restart enabled managed tunnel |
+| `POST /api/v1/ai/jobs` | Structured Daily/Trend/Compare/chat request; returns 202 |
+| `GET/DELETE /api/v1/ai/jobs/{id}` | Incremental events or cancel, scoped by profileId/machineId |
+| `GET /api/v1/ai/jobs/{id}/events` | Authenticated SSE batches, with optional cursor; disconnect cancels |
+| `DELETE /api/v1/ai/history` | Scope body plus optional conversationId; cancel and erase local state |
+
+SSE frames contain the OSCAR AIJob contract, with immutable `events` after the
+requested cursor and `nextCursor`. Events are `status`, `text_delta`, `complete`,
+and `error`, plus `review` for validated local results. Raw provider objects and hidden reasoning are never sent. Browser
+uses SSE; Electron uses the identical incremental contract through preload.
+All dates/ranges are explicit. A follow-up may inherit its conversation's scope.
+Each range is limited to 90 inclusive therapy days. Only completed turns enter
+local context. See [AI setup/privacy/lifecycle](OSCAR-AI.md). Regenerate the AI
+schemas after building with `node scripts/update-ai-openapi.mjs`.
+
 OSCAR Next 2.3 provides a local-first HTTP API over the same storage/query services used by Electron.
 
 Daily respiratory indices prefer detailed event records. When a session lacks
@@ -135,3 +179,31 @@ The headless React UI is served by the same HTTP process. LAN binding still requ
 ## 2.3 deployment note
 
 The same OpenAPI/Swagger contract is served by Windows Headless and Raspberry Pi Headless. Windows localhost deployments can run without a bearer token. Any non-loopback binding still requires a bearer token. `GET /api/v1/health` reports whether mounted-media watching and unattended media import are enabled.
+
+## Local Expert API
+
+The shared renderer uses these routes in browser mode and equivalent narrow IPC
+methods on desktop:
+
+- `GET|PUT /api/v1/expert/settings` — opt-in application settings, separate from clinical storage
+- `GET /api/v1/expert/models` — installed local Ollama models
+- `POST /api/v1/expert/check` — synthetic chat/tools/JSON compatibility test
+- `GET /api/v1/expert/diagnostics` — registry, ephemeral-state and external MCP explanation
+- `POST /api/v1/expert/reviews` — scoped night/trend/question request; returns a running job with HTTP 202
+- `GET /api/v1/expert/reviews/{id}?profileId=1&machineId=42` — poll scoped status/result
+- `DELETE /api/v1/expert/reviews/{id}?profileId=1&machineId=42` — cancel scoped generation
+
+The OpenAPI document contains strict settings/request/review/result contracts.
+Completed reviews require valid evidence references; malformed model output
+becomes a failed job with no accepted result. Jobs are ephemeral, scoped to
+profile/machine and bounded to one active operation per backend. Invalid requests
+or unavailable job scope return 400. Existing bearer authentication applies when
+configured. Expert requests with a cross-origin Origin header are rejected, and
+loopback deployments reject non-loopback Host values. LAN access still requires
+authentication. These routes never enable imports or expose arbitrary SQL/files.
+
+Ollama URLs are backend-local loopback roots, never browser-selected remote
+services. See [LOCAL-AI.md](LOCAL-AI.md) for bounds, cancellation, privacy, cloud
+model rejection and the limits of AI evidence validation. To regenerate the
+Expert OpenAPI sections after contract edits, run `npm run build` then
+`node scripts/update-expert-openapi.mjs`.

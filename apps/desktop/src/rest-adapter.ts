@@ -81,6 +81,38 @@ export function createRestOscarApi(token?: string): OscarApi {
   const json = <T,>(path: string, init?: RequestInit) => requestJson<T>(path, token, init);
 
   return {
+    getAISettings() { return json("/api/v1/ai/settings"); },
+    getGroqSettings() { return json("/api/v1/ai/groq/settings"); },
+    configureGroq(settings) { return json("/api/v1/ai/groq/settings",{method:"PUT",body:JSON.stringify(settings)}); },
+    testGroq() { return json("/api/v1/ai/groq/check",{method:"POST",body:"{}"}); },
+    listGroqModels() { return json("/api/v1/ai/groq/models"); },
+    getAIStatus() { return json("/api/v1/ai/status"); },
+    configureAI(settings) { return json("/api/v1/ai/settings", { method:"PUT",body:JSON.stringify(settings) }); },
+    testAI(component="all") { return json("/api/v1/ai/check",{method:"POST",body:JSON.stringify({component})}); },
+    restartAITunnel() { return json("/api/v1/ai/tunnel/restart",{method:"POST",body:"{}"}); },
+    startAI(request) { return json("/api/v1/ai/jobs",{method:"POST",body:JSON.stringify(request)}); },
+    getAIJob(id,scope,cursor) { return json(`/api/v1/ai/jobs/${encodeURIComponent(id)}?profileId=${scope.profileId}&machineId=${scope.machineId}&cursor=${cursor}`); },
+    watchAIJob(id,scope,cursor,update,error) {
+      const controller=new AbortController();
+      void (async()=>{
+        try{
+          const response=await fetch(`/api/v1/ai/jobs/${encodeURIComponent(id)}/events?profileId=${scope.profileId}&machineId=${scope.machineId}&cursor=${cursor}`,{headers:authHeaders(token),signal:controller.signal});
+          if(!response.ok||!response.body)throw new Error("AI stream unavailable");
+          const reader=response.body.getReader(),decoder=new TextDecoder();let buffer="",complete=false;
+          try{while(true){const {value,done}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});if(buffer.length>2_000_000)throw new Error("AI event batch too large");let end:number;while((end=buffer.indexOf("\n\n"))>=0){const frame=buffer.slice(0,end);buffer=buffer.slice(end+2);const data=frame.split("\n").find(line=>line.startsWith("data:"));if(data){const job=JSON.parse(data.slice(5));if(job.id!==id||!Array.isArray(job.events))throw new Error("AI stream ended");update(job);if(job.state!=="running")complete=true;}}}if(!complete)throw new Error("AI stream interrupted");}finally{await reader.cancel().catch(()=>{});reader.releaseLock();}
+        }catch{if(!controller.signal.aborted)error();}
+      })();return ()=>controller.abort();
+    },
+    cancelAI(id,scope) { return json(`/api/v1/ai/jobs/${encodeURIComponent(id)}?profileId=${scope.profileId}&machineId=${scope.machineId}`,{method:"DELETE"}); },
+    clearAIHistory(scope,conversationId) { return json("/api/v1/ai/history",{method:"DELETE",body:JSON.stringify({...scope,...(conversationId?{conversationId}:{})})}); },
+    getExpertSettings() { return json("/api/v1/expert/settings"); },
+    configureExpert(settings) { return json("/api/v1/expert/settings", { method: "PUT", body: JSON.stringify(settings) }); },
+    listExpertModels() { return json("/api/v1/expert/models"); },
+    testExpertModel() { return json("/api/v1/expert/check", { method: "POST", body: "{}" }); },
+    startExpertReview(request) { return json("/api/v1/expert/reviews", { method: "POST", body: JSON.stringify(request) }); },
+    getExpertReview(id, scope) { return json(`/api/v1/expert/reviews/${encodeURIComponent(id)}?profileId=${scope.profileId}&machineId=${scope.machineId}`); },
+    cancelExpertReview(id, scope) { return json(`/api/v1/expert/reviews/${encodeURIComponent(id)}?profileId=${scope.profileId}&machineId=${scope.machineId}`, { method: "DELETE" }); },
+    getExpertDiagnostics() { return json("/api/v1/expert/diagnostics"); },
     async getAppInfo(): Promise<AppInfo> {
       const health = await json<ApiHealth>("/api/v1/health");
       return { version: health.apiVersion, packaged: true, platform: health.platform ?? "linux", arch: health.arch ?? "arm64" };

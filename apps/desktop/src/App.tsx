@@ -1,3 +1,5 @@
+import { Expert } from "./Expert";
+import type { EvidenceReference } from "../../../src/expert/schemas.js";
 import { TopBarActions } from "./components/TopBarActions";
 import { useEffect, useMemo, useRef, useState, lazy, Suspense, type ChangeEvent } from "react";
 import { selectedChartChannels } from "./daily-graphs";
@@ -10,6 +12,8 @@ import { Sidebar, type AppView } from "./components/Sidebar";
 import { NightInspector, type GraphNavigation } from "./components/NightInspector";
 import { SessionsTable } from "./components/SessionsTable";
 import { AdminPages } from "./components/AdminPages";
+import type { SettingsTab } from "./components/settings/SettingsPage";
+import { useAIProvider } from "./components/settings/useAIProvider";
 import { Card } from "./ui";
 import { useTheme } from "./theme";
 import { dateAtOffset } from "./overview-date-range";
@@ -46,6 +50,7 @@ function formatDeviceTime(ms: number): string {
 
 export function App({ deployment = "desktop" }: { deployment?: "desktop" | "browser" }) {
   const { theme, setTheme } = useTheme();
+  const { provider: aiProvider, selectProvider: selectAIProvider } = useAIProvider();
   const [historyToolbar, setHistoryToolbar] = useState<HTMLDivElement | null>(null);
   const headerRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -62,7 +67,9 @@ export function App({ deployment = "desktop" }: { deployment?: "desktop" | "brow
   const [graphBookmarks, setGraphBookmarks] = useState<GraphBookmark[]>([]);
   const [bookmarkRevision, setBookmarkRevision] = useState(0);
   const [graphNavigation, setGraphNavigation] = useState<GraphNavigation>();
+  const [pendingEvidence, setPendingEvidence] = useState<EvidenceReference>();
   const [view, setView] = useState<AppView>("daily");
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("general");
   const [appInfo, setAppInfo] = useState<AppInfo>();
   const [setup, setSetup] = useState<SetupState>();
   const [database, setDatabase] = useState<string>();
@@ -262,6 +269,12 @@ export function App({ deployment = "desktop" }: { deployment?: "desktop" | "brow
     return () => { cancelled = true; };
   }, [machineId, date, view, dataRevision]);
 
+  useEffect(() => {
+    if (pendingEvidence && (pendingEvidence.profileId !== activeProfile?.id || pendingEvidence.machineId !== machineId)) { setPendingEvidence(undefined); return; }
+    if (!pendingEvidence || view !== "daily" || !daily || !charts || daily.date !== (pendingEvidence.date ?? pendingEvidence.startDate)) return;
+    if (pendingEvidence.startMs !== undefined && pendingEvidence.endMs !== undefined) setGraphNavigation({ startMs:pendingEvidence.startMs,endMs:pendingEvidence.endMs,requestId:Date.now() });
+    setPendingEvidence(undefined);
+  },[pendingEvidence,view,daily,charts,activeProfile?.id,machineId]);
   const needsSetup = setup?.needsSetup === true;
   const showInspector = inspectorOpen && view === "daily" && daily !== undefined && daily.sessions.length > 0 && machineId !== undefined;
 
@@ -305,7 +318,8 @@ export function App({ deployment = "desktop" }: { deployment?: "desktop" | "brow
         </>}
         {view === "overview" && machine && machineId !== undefined && <Suspense fallback={<div className="loading" role="status">Loading analytics…</div>}><Overview machine={machine} machineId={machineId} defaultEndDate={date} toolbarTarget={historyToolbar} /></Suspense>}
         {view === "statistics" && machine && machineId !== undefined && <Statistics machine={machine} machineId={machineId} defaultEndDate={date} toolbarTarget={historyToolbar} />}
-        {!["daily", "overview", "statistics", "sessions"].includes(view) && <AdminPages view={view} machines={machines} machineId={machineId} onSelectMachine={selectMachine} onProfiles={() => setShowProfileSettings(true)} onImport={chooseImportSource} onDiagnostics={() => void createDiagnostics()} onStatistics={() => setView("statistics")} appInfo={appInfo} deployment={deployment} theme={theme} onTheme={setTheme} />}
+        {view === "expert" && activeProfile && machineId !== undefined && <Expert provider={aiProvider} key={activeProfile.id + ":" + machineId} profileId={activeProfile.id} machineId={machineId} date={date} onSettings={() => { setSettingsTab("ai"); setView("settings"); }} onEvidence={evidence => { if (evidence.profileId !== activeProfile.id || evidence.machineId !== machineId) { setError("Evidence belongs to a different selected scope"); return; } setDate(evidence.date ?? evidence.startDate ?? date); setDaily(undefined); setCharts(undefined); setPendingEvidence(evidence); setView("daily"); }} />}
+        {!["expert", "daily", "overview", "statistics", "sessions"].includes(view) && <AdminPages aiProvider={aiProvider} onAIProviderChange={selectAIProvider} settingsTab={settingsTab} onSettingsTabChange={setSettingsTab} view={view} machines={machines} machineId={machineId} profileId={activeProfile?.id} onSelectMachine={selectMachine} onProfiles={() => setShowProfileSettings(true)} onImport={chooseImportSource} onDiagnostics={() => void createDiagnostics()} onStatistics={() => setView("statistics")} appInfo={appInfo} deployment={deployment} theme={theme} onTheme={setTheme} />}
       </main>
       {showInspector && <button className="inspector-shade" aria-label="Dismiss Night Inspector" onClick={() => setInspectorOpen(false)} />}{showInspector && <NightInspector key={`${machineId}-${daily.date}`} daily={daily} charts={charts} onClose={() => setInspectorOpen(false)} onToggleSession={(id, enabled) => void setSessionEnabled(id, enabled)} onDate={setDate} bookmarks={graphBookmarks} onBookmarkDelete={id => { void window.oscar.deleteGraphBookmark(machineId, id).then(() => setBookmarkRevision(value => value + 1)).catch(cause => setError(String(cause))); }} onNavigate={(startMs, endMs) => setGraphNavigation({ startMs, endMs, requestId: Date.now() })} />}
       </div>

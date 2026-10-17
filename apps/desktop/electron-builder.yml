@@ -10,6 +10,8 @@ files:
   - package.json
   - assets/**/*
 extraResources:
+  - from: ../../runtime/tunnel-client
+    to: tunnel-client
   - from: ../../LICENSE
     to: LICENSE.txt
 win:

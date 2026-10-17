@@ -1,7 +1,9 @@
 import { access, writeFile } from "node:fs/promises";
+import { expertService } from "../expert/service.js";
+import { aiService, closeAIServices, setAISecretCodec } from "../ai/service.js";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, safeStorage } from "electron";
 import { statisticsToCsv, statisticsToHtml } from "../reports/statistics-report.js";
 import { OscarDatabase, type StoredMachineSummary } from "../storage/database.js";
 import { systemTimeZone } from "../core/device-time.js";
@@ -132,6 +134,27 @@ async function createWindow(): Promise<void> {
   });
 }
 
+ipcMain.handle("expert:getSettings", () => expertService(requireDatabase()).settings());
+ipcMain.handle("ai:settings", () => aiService(requireDatabase()).settings.view());
+ipcMain.handle("ai:groqSettings", () => aiService(requireDatabase()).groqSettings.view());
+ipcMain.handle("ai:groqConfigure", (_event: unknown, settings: unknown) => aiService(requireDatabase()).configureGroq(settings));
+ipcMain.handle("ai:groqCheck", () => aiService(requireDatabase()).checkGroq());
+ipcMain.handle("ai:groqModels", () => aiService(requireDatabase()).listGroqModels());
+ipcMain.handle("ai:status", () => aiService(requireDatabase()).status());
+ipcMain.handle("ai:configure", (_event: unknown, settings: unknown) => aiService(requireDatabase()).configure(settings));
+ipcMain.handle("ai:check", (_event: unknown, component?: "all" | "openai" | "mcp" | "tunnel") => aiService(requireDatabase()).diagnostics(component));
+ipcMain.handle("ai:restart", () => aiService(requireDatabase()).restartTunnel());
+ipcMain.handle("ai:start", (_event: unknown, request: unknown) => aiService(requireDatabase()).start(request));
+ipcMain.handle("ai:job", (_event: unknown, id: string, scope: unknown, cursor: number) => aiService(requireDatabase()).job(id,scope,cursor));
+ipcMain.handle("ai:cancel", (_event: unknown, id: string, scope: unknown) => aiService(requireDatabase()).job(id,scope,0,true));
+ipcMain.handle("ai:clear", (_event: unknown, scope: unknown, id?: string) => aiService(requireDatabase()).clear(scope,id));
+ipcMain.handle("expert:configure", (_event: unknown, settings: unknown) => expertService(requireDatabase()).configure(settings));
+ipcMain.handle("expert:listModels", () => expertService(requireDatabase()).models());
+ipcMain.handle("expert:check", () => expertService(requireDatabase()).check());
+ipcMain.handle("expert:start", (_event: unknown, request: unknown) => expertService(requireDatabase()).start(request));
+ipcMain.handle("expert:job", (_event: unknown, id: string, scope: unknown) => expertService(requireDatabase()).job(id,scope));
+ipcMain.handle("expert:cancel", (_event: unknown, id: string, scope: unknown) => expertService(requireDatabase()).job(id,scope,true));
+ipcMain.handle("expert:diagnostics", () => expertService(requireDatabase()).diagnostics());
 ipcMain.handle("app:getInfo", () => ({ version: app.getVersion(), packaged: Boolean(app.isPackaged), platform: process.platform, arch: process.arch }));
 
 ipcMain.handle("setup:getState", () => setupState());
@@ -195,7 +218,9 @@ ipcMain.handle("database:open", async () => {
   });
   const selected = result.filePaths[0];
   if (result.canceled || !selected) return undefined;
+  if (selected !== databasePath) await closeAIServices();
   databasePath = selected;
+  void aiService(selected).initialize().catch(()=>logger?.warn("ai.start",{status:"configuration unavailable"}));
   logger?.info("database.opened", { databasePath: selected });
   return selected;
 });
@@ -436,13 +461,26 @@ app.whenReady().then(async () => {
   await logger.init();
   logger.info("app.start", { appVersion: app.getVersion(), electronVersion: process.versions.electron, nodeVersion: process.version, platform: process.platform });
   await useDefaultDatabaseIfPresent();
+  process.env.OSCAR_TUNNEL_MANIFEST ??= join(process.resourcesPath ?? join(moduleDir,"../../..","runtime"),"tunnel-client","manifest.json");
+  setAISecretCodec({
+    encrypt(value) { if(!safeStorage.isEncryptionAvailable() || safeStorage.getSelectedStorageBackend?.()==="basic_text") throw new Error("OS secret storage unavailable"); return safeStorage.encryptString(value).toString("base64"); },
+    decrypt(value) { if(!safeStorage.isEncryptionAvailable() || safeStorage.getSelectedStorageBackend?.()==="basic_text") throw new Error("OS secret storage unavailable"); return safeStorage.decryptString(Buffer.from(value,"base64")); },
+  });
+  if(databasePath) void aiService(databasePath).initialize().catch(()=>logger?.warn("ai.start",{status:"configuration unavailable"}));
   await createWindow();
   app.on("activate", async () => {
     if (BrowserWindow.getAllWindows().length === 0) await createWindow();
   });
 });
 
-app.on("before-quit", () => {
+let aiShutdownComplete = false;
+let aiShuttingDown = false;
+app.on("before-quit", (event: {preventDefault():void}) => {
+  if (!aiShutdownComplete) {
+    event.preventDefault();
+    if(!aiShuttingDown){aiShuttingDown=true;void closeAIServices().finally(()=>{aiShutdownComplete=true;app.quit();});}
+    return;
+  }
   logger?.info("app.quit");
   void logger?.flush();
   mediaWatcher?.stop();

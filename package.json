@@ -34,10 +34,17 @@
     "windows:headless:start": "powershell -ExecutionPolicy Bypass -File scripts/windows-headless-start.ps1",
     "windows:headless:stop": "powershell -ExecutionPolicy Bypass -File scripts/windows-headless-stop.ps1",
     "windows:headless:status": "powershell -ExecutionPolicy Bypass -File scripts/windows-headless-status.ps1",
-    "windows:headless:uninstall": "powershell -ExecutionPolicy Bypass -File scripts/windows-headless-uninstall.ps1"
+    "windows:headless:uninstall": "powershell -ExecutionPolicy Bypass -File scripts/windows-headless-uninstall.ps1",
+    "mcp": "node dist/src/expert/mcp.js",
+    "mcp:check": "node dist/src/expert/mcp.js --check"
   },
   "main": "dist/src/desktop/main.js",
   "devDependencies": {
+    "@modelcontextprotocol/client": "^2.3.1",
     "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.3.1",
+    "zod": "^4.6.7"
   }
 }

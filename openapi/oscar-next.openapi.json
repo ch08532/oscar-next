@@ -39,6 +39,10 @@
     {
       "name": "Reports",
       "description": "CSV and printable reports"
+    },
+    {
+      "name": "OSCAR AI",
+      "description": "Shared Expert analysis with explicit local Ollama, OpenAI or Groq provider"
     }
   ],
   "paths": {
@@ -2008,6 +2012,999 @@
           }
         }
       }
+    },
+    "/api/v1/expert/settings": {
+      "get": {
+        "tags": [
+          "Expert"
+        ],
+        "summary": "Read local AI application settings",
+        "description": "Local-only Ollama. Opt-in reviews; profile/machine scope and bounded therapy dates are validated. No cloud fallback. Cross-origin requests are rejected.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpertSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, unavailable local model or operation failure"
+          },
+          "401": {
+            "description": "Bearer token required"
+          },
+          "403": {
+            "description": "Cross-origin access refused"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Expert"
+        ],
+        "summary": "Configure opt-in local AI",
+        "description": "Local-only Ollama. Opt-in reviews; profile/machine scope and bounded therapy dates are validated. No cloud fallback. Cross-origin requests are rejected.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpertSettings"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpertSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, unavailable local model or operation failure"
+          },
+          "401": {
+            "description": "Bearer token required"
+          },
+          "403": {
+            "description": "Cross-origin access refused"
+          }
+        }
+      }
+    },
+    "/api/v1/expert/models": {
+      "get": {
+        "tags": [
+          "Expert"
+        ],
+        "summary": "List installed models excluding cloud tags",
+        "description": "Local-only Ollama. Opt-in reviews; profile/machine scope and bounded therapy dates are validated. No cloud fallback. Cross-origin requests are rejected.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "name",
+                      "digest"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "digest": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, unavailable local model or operation failure"
+          },
+          "401": {
+            "description": "Bearer token required"
+          },
+          "403": {
+            "description": "Cross-origin access refused"
+          }
+        }
+      }
+    },
+    "/api/v1/expert/check": {
+      "post": {
+        "tags": [
+          "Expert"
+        ],
+        "summary": "Run synthetic chat/tool/structured compatibility probes",
+        "description": "Local-only Ollama. Opt-in reviews; profile/machine scope and bounded therapy dates are validated. No cloud fallback. Cross-origin requests are rejected.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpertCompatibility"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, unavailable local model or operation failure"
+          },
+          "401": {
+            "description": "Bearer token required"
+          },
+          "403": {
+            "description": "Cross-origin access refused"
+          }
+        }
+      }
+    },
+    "/api/v1/expert/diagnostics": {
+      "get": {
+        "tags": [
+          "Expert"
+        ],
+        "summary": "Read metadata-only Expert diagnostics",
+        "description": "Local-only Ollama. Opt-in reviews; profile/machine scope and bounded therapy dates are validated. No cloud fallback. Cross-origin requests are rejected.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tools": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "mcp": {
+                      "type": "string"
+                    },
+                    "persistence": {
+                      "type": "string"
+                    },
+                    "compatibility": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/ExpertCompatibility"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "lastTimings": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "toolsMs",
+                            "generationMs",
+                            "totalMs",
+                            "toolCalls",
+                            "toolDurations"
+                          ],
+                          "properties": {
+                            "toolsMs": {
+                              "type": "number"
+                            },
+                            "generationMs": {
+                              "type": "number"
+                            },
+                            "totalMs": {
+                              "type": "number"
+                            },
+                            "toolCalls": {
+                              "type": "number"
+                            },
+                            "toolDurations": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "required": [
+                                  "tool",
+                                  "durationMs"
+                                ],
+                                "properties": {
+                                  "tool": {
+                                    "type": "string"
+                                  },
+                                  "durationMs": {
+                                    "type": "number"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, unavailable local model or operation failure"
+          },
+          "401": {
+            "description": "Bearer token required"
+          },
+          "403": {
+            "description": "Cross-origin access refused"
+          }
+        }
+      }
+    },
+    "/api/v1/expert/reviews": {
+      "post": {
+        "tags": [
+          "Expert"
+        ],
+        "summary": "Start an ephemeral bounded review",
+        "description": "Local-only Ollama. Opt-in reviews; profile/machine scope and bounded therapy dates are validated. No cloud fallback. Cross-origin requests are rejected.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExpertRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpertJob"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, unavailable local model or operation failure"
+          },
+          "401": {
+            "description": "Bearer token required"
+          },
+          "403": {
+            "description": "Cross-origin access refused"
+          }
+        }
+      }
+    },
+    "/api/v1/expert/reviews/{id}": {
+      "get": {
+        "tags": [
+          "Expert"
+        ],
+        "summary": "Poll review status/results in selected scope",
+        "description": "Local-only Ollama. Opt-in reviews; profile/machine scope and bounded therapy dates are validated. No cloud fallback. Cross-origin requests are rejected.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpertJob"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, unavailable local model or operation failure"
+          },
+          "401": {
+            "description": "Bearer token required"
+          },
+          "403": {
+            "description": "Cross-origin access refused"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "profileId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "machineId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "Expert"
+        ],
+        "summary": "Cancel generation in selected scope",
+        "description": "Local-only Ollama. Opt-in reviews; profile/machine scope and bounded therapy dates are validated. No cloud fallback. Cross-origin requests are rejected.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExpertJob"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, unavailable local model or operation failure"
+          },
+          "401": {
+            "description": "Bearer token required"
+          },
+          "403": {
+            "description": "Cross-origin access refused"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "profileId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "machineId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/ai/settings": {
+      "get": {
+        "tags": [
+          "OSCAR AI"
+        ],
+        "summary": "Read safe OSCAR AI settings",
+        "description": "Expert supports explicit local Ollama or opt-in OpenAI/Groq processing. Groq has separate settings/check routes and needs no tunnel. Original configuration/status/tunnel routes configure OpenAI; Ollama uses existing Expert settings/check routes. OpenAI keeps store:false; Groq Chat Completions does not support that parameter. All providers use bounded read-only OSCAR tools and isolated ephemeral context. Credentials remain backend-only. Existing bearer authentication applies; cross-origin requests are rejected.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AISettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or operation unavailable"
+          },
+          "401": {
+            "description": "Bearer token required"
+          },
+          "403": {
+            "description": "Cross-origin or invalid host"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "OSCAR AI"
+        ],
+        "summary": "Save AI settings and replace/remove backend credentials",
+        "description": "Expert supports explicit local Ollama or opt-in OpenAI/Groq processing. Groq has separate settings/check routes and needs no tunnel. Original configuration/status/tunnel routes configure OpenAI; Ollama uses existing Expert settings/check routes. OpenAI keeps store:false; Groq Chat Completions does not support that parameter. All providers use bounded read-only OSCAR tools and isolated ephemeral context. Credentials remain backend-only. Existing bearer authentication applies; cross-origin requests are rejected.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AISettingsUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AISettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or operation unavailable"
+          },
+          "401": {
+            "description": "Bearer token required"
+          },
+          "403": {
+            "description": "Cross-origin or invalid host"
+          }
+        }
+      }
+    },
+    "/api/v1/ai/status": {
+      "get": {
+        "tags": [
+          "OSCAR AI"
+        ],
+        "summary": "Read current monitored status without an OpenAI request",
+        "description": "Expert supports explicit local Ollama or opt-in OpenAI/Groq processing. Groq has separate settings/check routes and needs no tunnel. Original configuration/status/tunnel routes configure OpenAI; Ollama uses existing Expert settings/check routes. OpenAI keeps store:false; Groq Chat Completions does not support that parameter. All providers use bounded read-only OSCAR tools and isolated ephemeral context. Credentials remain backend-only. Existing bearer authentication applies; cross-origin requests are rejected.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIDiagnostics"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or operation unavailable"
+          },
+          "401": {
+            "description": "Bearer token required"
+          },
+          "403": {
+            "description": "Cross-origin or invalid host"
+          }
+        }
+      }
+    },
+    "/api/v1/ai/check": {
+      "post": {
+        "tags": [
+          "OSCAR AI"
+        ],
+        "summary": "Test OpenAI, initialized MCP read-only tools and managed tunnel",
+        "description": "Expert supports explicit local Ollama or opt-in OpenAI/Groq processing. Groq has separate settings/check routes and needs no tunnel. Original configuration/status/tunnel routes configure OpenAI; Ollama uses existing Expert settings/check routes. OpenAI keeps store:false; Groq Chat Completions does not support that parameter. All providers use bounded read-only OSCAR tools and isolated ephemeral context. Credentials remain backend-only. Existing bearer authentication applies; cross-origin requests are rejected.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "component": {
+                    "type": "string",
+                    "enum": [
+                      "all",
+                      "openai",
+                      "mcp",
+                      "tunnel"
+                    ]
+                  }
+                },
+                "required": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIDiagnostics"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or operation unavailable"
+          },
+          "401": {
+            "description": "Bearer token required"
+          },
+          "403": {
+            "description": "Cross-origin or invalid host"
+          }
+        }
+      }
+    },
+    "/api/v1/ai/tunnel/restart": {
+      "post": {
+        "tags": [
+          "OSCAR AI"
+        ],
+        "summary": "Restart enabled managed tunnel with a fresh bounded recovery budget",
+        "description": "Expert supports explicit local Ollama or opt-in OpenAI/Groq processing. Groq has separate settings/check routes and needs no tunnel. Original configuration/status/tunnel routes configure OpenAI; Ollama uses existing Expert settings/check routes. OpenAI keeps store:false; Groq Chat Completions does not support that parameter. All providers use bounded read-only OSCAR tools and isolated ephemeral context. Credentials remain backend-only. Existing bearer authentication applies; cross-origin requests are rejected.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AITunnelStatus"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or operation unavailable"
+          },
+          "401": {
+            "description": "Bearer token required"
+          },
+          "403": {
+            "description": "Cross-origin or invalid host"
+          }
+        }
+      }
+    },
+    "/api/v1/ai/jobs": {
+      "post": {
+        "tags": [
+          "OSCAR AI"
+        ],
+        "summary": "Start streamed guided analysis or conversational follow-up",
+        "description": "Expert supports explicit local Ollama or opt-in OpenAI/Groq processing. Groq has separate settings/check routes and needs no tunnel. Original configuration/status/tunnel routes configure OpenAI; Ollama uses existing Expert settings/check routes. OpenAI keeps store:false; Groq Chat Completions does not support that parameter. All providers use bounded read-only OSCAR tools and isolated ephemeral context. Credentials remain backend-only. Existing bearer authentication applies; cross-origin requests are rejected.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AIRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIJob"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or operation unavailable"
+          },
+          "401": {
+            "description": "Bearer token required"
+          },
+          "403": {
+            "description": "Cross-origin or invalid host"
+          }
+        }
+      }
+    },
+    "/api/v1/ai/jobs/{id}": {
+      "get": {
+        "tags": [
+          "OSCAR AI"
+        ],
+        "summary": "Read immutable incremental event batches",
+        "description": "Expert supports explicit local Ollama or opt-in OpenAI/Groq processing. Groq has separate settings/check routes and needs no tunnel. Original configuration/status/tunnel routes configure OpenAI; Ollama uses existing Expert settings/check routes. OpenAI keeps store:false; Groq Chat Completions does not support that parameter. All providers use bounded read-only OSCAR tools and isolated ephemeral context. Credentials remain backend-only. Existing bearer authentication applies; cross-origin requests are rejected.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIJob"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or operation unavailable"
+          },
+          "401": {
+            "description": "Bearer token required"
+          },
+          "403": {
+            "description": "Cross-origin or invalid host"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "profileId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "machineId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "OSCAR AI"
+        ],
+        "summary": "Cancel one scoped generation; leave tunnel running",
+        "description": "Expert supports explicit local Ollama or opt-in OpenAI/Groq processing. Groq has separate settings/check routes and needs no tunnel. Original configuration/status/tunnel routes configure OpenAI; Ollama uses existing Expert settings/check routes. OpenAI keeps store:false; Groq Chat Completions does not support that parameter. All providers use bounded read-only OSCAR tools and isolated ephemeral context. Credentials remain backend-only. Existing bearer authentication applies; cross-origin requests are rejected.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIJob"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or operation unavailable"
+          },
+          "401": {
+            "description": "Bearer token required"
+          },
+          "403": {
+            "description": "Cross-origin or invalid host"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "profileId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "machineId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/ai/jobs/{id}/events": {
+      "get": {
+        "tags": [
+          "OSCAR AI"
+        ],
+        "summary": "Stream OSCAR AI job batches as SSE; disconnect cancels generation",
+        "description": "Expert supports explicit local Ollama or opt-in OpenAI/Groq processing. Groq has separate settings/check routes and needs no tunnel. Original configuration/status/tunnel routes configure OpenAI; Ollama uses existing Expert settings/check routes. OpenAI keeps store:false; Groq Chat Completions does not support that parameter. All providers use bounded read-only OSCAR tools and isolated ephemeral context. Credentials remain backend-only. Existing bearer authentication applies; cross-origin requests are rejected.",
+        "responses": {
+          "200": {
+            "description": "Each data frame contains an AIJob with only events after the supplied cursor. Ends on complete/failed/cancelled. No provider stream objects or hidden reasoning.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or operation unavailable"
+          },
+          "401": {
+            "description": "Bearer token required"
+          },
+          "403": {
+            "description": "Cross-origin or invalid host"
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "profileId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "machineId",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/ai/history": {
+      "delete": {
+        "tags": [
+          "OSCAR AI"
+        ],
+        "summary": "Cancel and delete local conversations/jobs for a selected scope",
+        "description": "Expert supports explicit local Ollama or opt-in OpenAI/Groq processing. Groq has separate settings/check routes and needs no tunnel. Original configuration/status/tunnel routes configure OpenAI; Ollama uses existing Expert settings/check routes. OpenAI keeps store:false; Groq Chat Completions does not support that parameter. All providers use bounded read-only OSCAR tools and isolated ephemeral context. Credentials remain backend-only. Existing bearer authentication applies; cross-origin requests are rejected.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "profileId": {
+                    "type": "integer"
+                  },
+                  "machineId": {
+                    "type": "integer"
+                  },
+                  "conversationId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "profileId",
+                  "machineId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Invalid request or operation unavailable"
+          },
+          "401": {
+            "description": "Bearer token required"
+          },
+          "403": {
+            "description": "Cross-origin or invalid host"
+          }
+        }
+      }
+    },
+    "/api/v1/ai/groq/settings": {
+      "get": {
+        "tags": [
+          "OSCAR AI"
+        ],
+        "summary": "Read safe Groq settings and credential flag",
+        "description": "Expert supports explicit local Ollama or opt-in OpenAI/Groq processing. Groq has separate settings/check routes and needs no tunnel. Original configuration/status/tunnel routes configure OpenAI; Ollama uses existing Expert settings/check routes. OpenAI keeps store:false; Groq Chat Completions does not support that parameter. All providers use bounded read-only OSCAR tools and isolated ephemeral context. Credentials remain backend-only. Existing bearer authentication applies; cross-origin requests are rejected.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroqSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or operation unavailable"
+          },
+          "401": {
+            "description": "Bearer token required"
+          },
+          "403": {
+            "description": "Cross-origin or invalid host"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "OSCAR AI"
+        ],
+        "summary": "Save Groq settings; replace/remove the backend-only key",
+        "description": "Expert supports explicit local Ollama or opt-in OpenAI/Groq processing. Groq has separate settings/check routes and needs no tunnel. Original configuration/status/tunnel routes configure OpenAI; Ollama uses existing Expert settings/check routes. OpenAI keeps store:false; Groq Chat Completions does not support that parameter. All providers use bounded read-only OSCAR tools and isolated ephemeral context. Credentials remain backend-only. Existing bearer authentication applies; cross-origin requests are rejected.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroqSettingsUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroqSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or operation unavailable"
+          },
+          "401": {
+            "description": "Bearer token required"
+          },
+          "403": {
+            "description": "Cross-origin or invalid host"
+          }
+        }
+      }
+    },
+    "/api/v1/ai/groq/check": {
+      "post": {
+        "tags": [
+          "OSCAR AI"
+        ],
+        "summary": "Test Groq model function calling with a synthetic request; no therapy data",
+        "description": "Expert supports explicit local Ollama or opt-in OpenAI/Groq processing. Groq has separate settings/check routes and needs no tunnel. Original configuration/status/tunnel routes configure OpenAI; Ollama uses existing Expert settings/check routes. OpenAI keeps store:false; Groq Chat Completions does not support that parameter. All providers use bounded read-only OSCAR tools and isolated ephemeral context. Credentials remain backend-only. Existing bearer authentication applies; cross-origin requests are rejected.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroqConnectionCheck"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or operation unavailable"
+          },
+          "401": {
+            "description": "Bearer token required"
+          },
+          "403": {
+            "description": "Cross-origin or invalid host"
+          }
+        }
+      }
+    },
+    "/api/v1/ai/groq/models": {
+      "get": {
+        "tags": [
+          "OSCAR AI"
+        ],
+        "summary": "List active Groq model IDs without inference or therapy data",
+        "description": "Expert supports explicit local Ollama or opt-in OpenAI/Groq processing. Groq has separate settings/check routes and needs no tunnel. Original configuration/status/tunnel routes configure OpenAI; Ollama uses existing Expert settings/check routes. OpenAI keeps store:false; Groq Chat Completions does not support that parameter. All providers use bounded read-only OSCAR tools and isolated ephemeral context. Credentials remain backend-only. Existing bearer authentication applies; cross-origin requests are rejected.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroqModelList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request or operation unavailable"
+          },
+          "401": {
+            "description": "Bearer token required"
+          },
+          "403": {
+            "description": "Cross-origin or invalid host"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3026,6 +4023,1223 @@
             "description": "Absent if no valid leak samples; never synthesize zero for missing recordings."
           }
         }
+      },
+      "ExpertSettings": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "endpoint": {
+            "type": "string",
+            "maxLength": 150
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 150
+          },
+          "contextSize": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 2048,
+                "maximum": 32768
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "enabled",
+          "endpoint",
+          "model",
+          "contextSize"
+        ],
+        "additionalProperties": false
+      },
+      "ExpertRequest": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "profileId": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "machineId": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "reviewType": {
+            "type": "string",
+            "enum": [
+              "night",
+              "trend",
+              "question"
+            ]
+          },
+          "date": {
+            "type": "string"
+          },
+          "range": {
+            "type": "object",
+            "properties": {
+              "startDate": {
+                "type": "string"
+              },
+              "endDate": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "startDate",
+              "endDate"
+            ],
+            "additionalProperties": false
+          },
+          "baseline": {
+            "type": "object",
+            "properties": {
+              "startDate": {
+                "type": "string"
+              },
+              "endDate": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "startDate",
+              "endDate"
+            ],
+            "additionalProperties": false
+          },
+          "question": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "profileId",
+          "machineId",
+          "reviewType",
+          "date"
+        ],
+        "additionalProperties": false
+      },
+      "ExpertReview": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "reviewType": {
+            "type": "string",
+            "enum": [
+              "night",
+              "trend",
+              "question"
+            ]
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 3000
+          },
+          "positiveFindings": {
+            "maxItems": 12,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                "severity": {
+                  "type": "string",
+                  "enum": [
+                    "info",
+                    "low",
+                    "moderate",
+                    "high"
+                  ]
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "explanation": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1600
+                },
+                "evidenceIds": {
+                  "minItems": 1,
+                  "maxItems": 12,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                },
+                "confidence": {
+                  "type": "string",
+                  "enum": [
+                    "high",
+                    "moderate",
+                    "low"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "severity",
+                "title",
+                "explanation",
+                "evidenceIds",
+                "confidence"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "itemsToReview": {
+            "maxItems": 12,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                "severity": {
+                  "type": "string",
+                  "enum": [
+                    "info",
+                    "low",
+                    "moderate",
+                    "high"
+                  ]
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "explanation": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1600
+                },
+                "evidenceIds": {
+                  "minItems": 1,
+                  "maxItems": 12,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                },
+                "confidence": {
+                  "type": "string",
+                  "enum": [
+                    "high",
+                    "moderate",
+                    "low"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "severity",
+                "title",
+                "explanation",
+                "evidenceIds",
+                "confidence"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "questionsForClinician": {
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          "limitations": {
+            "maxItems": 12,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 800
+            }
+          },
+          "evidenceUsed": {
+            "minItems": 1,
+            "maxItems": 40,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 200
+            }
+          }
+        },
+        "required": [
+          "reviewType",
+          "summary",
+          "positiveFindings",
+          "itemsToReview",
+          "questionsForClinician",
+          "limitations",
+          "evidenceUsed"
+        ],
+        "additionalProperties": false
+      },
+      "ExpertScope": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "profileId": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "machineId": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "profileId",
+          "machineId"
+        ],
+        "additionalProperties": false
+      },
+      "ExpertCompatibility": {
+        "type": "object",
+        "required": [
+          "reachable",
+          "modelAvailable",
+          "chat",
+          "tools",
+          "structured",
+          "ready",
+          "message"
+        ],
+        "properties": {
+          "reachable": {
+            "type": "boolean"
+          },
+          "modelAvailable": {
+            "type": "boolean"
+          },
+          "chat": {
+            "type": "boolean"
+          },
+          "tools": {
+            "type": "boolean"
+          },
+          "structured": {
+            "type": "boolean"
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "ExpertJob": {
+        "type": "object",
+        "required": [
+          "id",
+          "state",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "running",
+              "complete",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "status": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          },
+          "result": {
+            "$ref": "#/components/schemas/ExpertResult"
+          }
+        }
+      },
+      "ExpertEvidence": {
+        "type": "object",
+        "required": [
+          "id",
+          "profileId",
+          "machineId",
+          "label"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "profileId": {
+            "type": "integer"
+          },
+          "machineId": {
+            "type": "integer"
+          },
+          "label": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "startMs": {
+            "type": "number"
+          },
+          "endMs": {
+            "type": "number"
+          }
+        }
+      },
+      "ExpertFinding": {
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "severity",
+          "title",
+          "measurement",
+          "evidence"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "info",
+              "low",
+              "moderate",
+              "high"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "measurement": {
+            "type": "object",
+            "required": [
+              "value",
+              "unit"
+            ],
+            "properties": {
+              "value": {
+                "type": "number"
+              },
+              "unit": {
+                "type": "string"
+              },
+              "baseline": {
+                "type": "number"
+              }
+            }
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ExpertResult": {
+        "type": "object",
+        "required": [
+          "review",
+          "evidence",
+          "findings",
+          "timings",
+          "generatedAt",
+          "model",
+          "schemaVersion",
+          "promptVersion"
+        ],
+        "properties": {
+          "review": {
+            "$ref": "#/components/schemas/ExpertReview"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExpertEvidence"
+            }
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExpertFinding"
+            }
+          },
+          "timings": {
+            "type": "object",
+            "required": [
+              "toolsMs",
+              "generationMs",
+              "totalMs",
+              "toolCalls",
+              "toolDurations"
+            ],
+            "properties": {
+              "toolsMs": {
+                "type": "number"
+              },
+              "generationMs": {
+                "type": "number"
+              },
+              "totalMs": {
+                "type": "number"
+              },
+              "toolCalls": {
+                "type": "number"
+              },
+              "toolDurations": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "tool",
+                    "durationMs"
+                  ],
+                  "properties": {
+                    "tool": {
+                      "type": "string"
+                    },
+                    "durationMs": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "model": {
+            "type": "string"
+          },
+          "schemaVersion": {
+            "type": "integer"
+          },
+          "promptVersion": {
+            "type": "integer"
+          },
+          "modelDigest": {
+            "type": "string"
+          }
+        }
+      },
+      "AISettings": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "provider": {
+            "enum": [
+              "openai"
+            ],
+            "type": "string"
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 150
+          },
+          "tunnelEnabled": {
+            "type": "boolean"
+          },
+          "tunnelId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "apiKeyConfigured": {
+            "type": "boolean"
+          },
+          "runtimeKeyConfigured": {
+            "type": "boolean"
+          },
+          "secretStorage": {
+            "type": "string",
+            "enum": [
+              "os-encrypted",
+              "memory-only"
+            ]
+          }
+        },
+        "required": [
+          "enabled",
+          "provider",
+          "model",
+          "tunnelEnabled",
+          "tunnelId",
+          "apiKeyConfigured",
+          "runtimeKeyConfigured",
+          "secretStorage"
+        ]
+      },
+      "AISettingsUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "provider": {
+            "enum": [
+              "openai"
+            ],
+            "type": "string"
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 150
+          },
+          "tunnelEnabled": {
+            "type": "boolean"
+          },
+          "tunnelId": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "apiKey": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4096,
+            "writeOnly": true,
+            "description": "Omit to preserve; null to remove. Never returned."
+          },
+          "runtimeKey": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4096,
+            "writeOnly": true,
+            "description": "Separate tunnel runtime credential. Omit to preserve; null to remove."
+          }
+        },
+        "required": [
+          "enabled",
+          "provider",
+          "model",
+          "tunnelEnabled",
+          "tunnelId"
+        ]
+      },
+      "AIRequest": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "profileId": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "machineId": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "conversationId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "provider": {
+                "type": "string",
+                "enum": [
+                  "ollama",
+                  "openai",
+                  "groq"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "const": "analysis"
+              },
+              "dateMode": {
+                "type": "string",
+                "const": "single"
+              },
+              "intent": {
+                "type": "string",
+                "enum": [
+                  "sleep_summary",
+                  "ahi_analysis",
+                  "event_analysis",
+                  "leak_analysis",
+                  "pressure_analysis",
+                  "flow_limit_analysis",
+                  "machine_settings",
+                  "detailed_night_analysis"
+                ]
+              },
+              "date": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "profileId",
+              "machineId",
+              "type",
+              "dateMode",
+              "intent",
+              "date"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "profileId": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "machineId": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "conversationId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "provider": {
+                "type": "string",
+                "enum": [
+                  "ollama",
+                  "openai",
+                  "groq"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "const": "analysis"
+              },
+              "dateMode": {
+                "type": "string",
+                "const": "range"
+              },
+              "intent": {
+                "type": "string",
+                "enum": [
+                  "overall_sleep_trend",
+                  "ahi_trend",
+                  "obstructive_apnea_trend",
+                  "central_apnea_trend",
+                  "hypopnea_trend",
+                  "leak_trend",
+                  "pressure_trend",
+                  "flow_limitation_trend",
+                  "usage_trend"
+                ]
+              },
+              "startDate": {
+                "type": "string"
+              },
+              "endDate": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "profileId",
+              "machineId",
+              "type",
+              "dateMode",
+              "intent",
+              "startDate",
+              "endDate"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "profileId": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "machineId": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "conversationId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "provider": {
+                "type": "string",
+                "enum": [
+                  "ollama",
+                  "openai",
+                  "groq"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "const": "analysis"
+              },
+              "dateMode": {
+                "type": "string",
+                "const": "compare"
+              },
+              "intent": {
+                "type": "string",
+                "enum": [
+                  "compare_overall",
+                  "compare_ahi",
+                  "compare_events",
+                  "compare_leaks",
+                  "compare_pressure",
+                  "compare_flow_limitations"
+                ]
+              },
+              "periodA": {
+                "type": "object",
+                "properties": {
+                  "startDate": {
+                    "type": "string"
+                  },
+                  "endDate": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "startDate",
+                  "endDate"
+                ],
+                "additionalProperties": false
+              },
+              "periodB": {
+                "type": "object",
+                "properties": {
+                  "startDate": {
+                    "type": "string"
+                  },
+                  "endDate": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "startDate",
+                  "endDate"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "profileId",
+              "machineId",
+              "type",
+              "dateMode",
+              "intent",
+              "periodA",
+              "periodB"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "profileId": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "machineId": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "conversationId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "provider": {
+                "type": "string",
+                "enum": [
+                  "ollama",
+                  "openai",
+                  "groq"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "const": "chat"
+              },
+              "dateMode": {
+                "type": "string",
+                "const": "chat"
+              },
+              "message": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              "range": {
+                "type": "object",
+                "properties": {
+                  "startDate": {
+                    "type": "string"
+                  },
+                  "endDate": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "startDate",
+                  "endDate"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "profileId",
+              "machineId",
+              "type",
+              "dateMode",
+              "message"
+            ],
+            "additionalProperties": false
+          }
+        ],
+        "description": "Shared Expert guided request or chat. provider is ollama, openai or groq; omitted provider inherits an existing conversation, or defaults to openai for backward compatibility. Providers cannot share conversation IDs/history. Each inclusive range is 1–90 therapy dates. New chat requires a range; follow-ups can inherit it. Ollama questions are limited to 2,000 characters and retain local compatibility/evidence validation. Groq uses backend-managed, scoped read-only tools without an OpenAI tunnel."
+      },
+      "AIEvent": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "enum": [
+                  "status",
+                  "text_delta",
+                  "error"
+                ]
+              },
+              "text": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "text"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "complete"
+              },
+              "conversationId": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "type",
+              "conversationId"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "const": "review"
+              },
+              "result": {
+                "$ref": "#/components/schemas/ExpertResult"
+              }
+            },
+            "required": [
+              "type",
+              "result"
+            ]
+          }
+        ]
+      },
+      "AIJob": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "conversationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "provider": {
+            "type": "string",
+            "enum": [
+              "ollama",
+              "openai",
+              "groq"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "running",
+              "complete",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AIEvent"
+            }
+          },
+          "nextCursor": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "conversationId",
+          "provider",
+          "state",
+          "events",
+          "nextCursor"
+        ]
+      },
+      "AITunnelStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "stopped",
+              "starting",
+              "connected",
+              "disconnected",
+              "failed"
+            ]
+          },
+          "process": {
+            "type": "boolean"
+          },
+          "healthy": {
+            "type": "boolean"
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "attempts": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "state",
+          "process",
+          "healthy",
+          "ready",
+          "attempts",
+          "error"
+        ]
+      },
+      "AIDiagnostics": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "openai": {
+            "type": "boolean"
+          },
+          "mcp": {
+            "type": "boolean"
+          },
+          "mcpUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tools": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tunnel": {
+            "$ref": "#/components/schemas/AITunnelStatus"
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "openai",
+          "mcp",
+          "mcpUrl",
+          "tools",
+          "tunnel",
+          "ready",
+          "message"
+        ]
+      },
+      "GroqSettings": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "provider": {
+            "type": "string",
+            "const": "groq"
+          },
+          "model": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9._:/-]{1,150}$"
+          },
+          "apiKeyConfigured": {
+            "type": "boolean"
+          },
+          "secretStorage": {
+            "type": "string",
+            "enum": [
+              "os-encrypted",
+              "memory-only"
+            ]
+          }
+        },
+        "required": [
+          "enabled",
+          "provider",
+          "model",
+          "apiKeyConfigured",
+          "secretStorage"
+        ]
+      },
+      "GroqSettingsUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "provider": {
+            "type": "string",
+            "const": "groq"
+          },
+          "model": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9._:/-]{1,150}$"
+          },
+          "apiKey": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4096,
+            "writeOnly": true,
+            "description": "Separate Groq API key. Omit to preserve; null to remove. Never returned."
+          }
+        },
+        "required": [
+          "enabled",
+          "provider",
+          "model"
+        ]
+      },
+      "GroqConnectionCheck": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "connected": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "connected",
+          "message"
+        ]
+      },
+      "GroqModelList": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9._:/-]{1,150}$"
+        },
+        "maxItems": 1000,
+        "description": "Active model IDs returned by Groq using the saved backend key. Listing does not establish chat/tool compatibility or account permissions; run the synthetic connection check."
       }
     }
   }

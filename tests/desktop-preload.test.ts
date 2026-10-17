@@ -30,4 +30,20 @@ test("compiled preload loads with sandbox CommonJS and exposes the scoped IPC AP
     ["graphs:setVisibility", 123, { flow: false, "respiratory-rate": true }],
   ]);
   assert.equal(bridge.require, undefined);
+  calls.length=0;
+  await bridge.getGroqSettings();
+  await bridge.configureGroq({provider:"groq",enabled:true,model:"synthetic/model",apiKey:"synthetic-key"});
+  await bridge.testGroq();
+  await bridge.listGroqModels();
+  assert.deepEqual(calls,[["ai:groqSettings"],["ai:groqConfigure",{provider:"groq",enabled:true,model:"synthetic/model",apiKey:"synthetic-key"}],["ai:groqCheck"],["ai:groqModels"]]);
+  calls.length=0;
+  await bridge.getAISettings();
+  await bridge.startAI({profileId:1,machineId:123,type:"analysis",dateMode:"single",date:"2026-10-16",intent:"ahi_analysis"});
+  await bridge.clearAIHistory({profileId:1,machineId:123});
+  assert.deepEqual(calls,[["ai:settings"],["ai:start",{profileId:1,machineId:123,type:"analysis",dateMode:"single",date:"2026-10-16",intent:"ahi_analysis"}],["ai:clear",{profileId:1,machineId:123},undefined]]);
+  calls.length = 0;
+  await bridge.getExpertSettings();
+  await bridge.startExpertReview({ profileId:1,machineId:123,date:"2026-10-09",reviewType:"night" });
+  await bridge.cancelExpertReview("synthetic-id",{profileId:1,machineId:123});
+  assert.deepEqual(calls,[["expert:getSettings"],["expert:start",{profileId:1,machineId:123,date:"2026-10-09",reviewType:"night"}],["expert:cancel","synthetic-id",{profileId:1,machineId:123}]]);
 });

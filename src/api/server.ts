@@ -1,4 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { expertService } from "../expert/service.js";
+import { aiService, type AIService } from "../ai/service.js";
+import { scopeSchema } from "../expert/schemas.js";
 import { timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize, resolve, sep } from "node:path";
@@ -15,6 +18,7 @@ import { createSystemVolumeProvider, RemovableMediaWatcher, type DetectedMedia }
 export const API_VERSION = "2.3.0";
 
 export interface OscarApiServerOptions {
+  ai?: AIService;
   databasePath: string;
   host?: string;
   port?: number;
@@ -295,6 +299,71 @@ export async function startOscarApiServer(options: OscarApiServerOptions): Promi
       }
 
       authorize(request, token, pathname);
+
+      if (pathname.startsWith("/api/v1/ai/")) {
+        if (isLoopback(host) && !isLoopback(url.hostname)) throw new HttpError(403,"Invalid local AI host");
+        if (request.headers.origin && request.headers.origin !== url.origin) throw new HttpError(403,"Cross-origin AI access is disabled");
+        const service=options.ai ?? aiService(options.databasePath);
+        try {
+          if(pathname==="/api/v1/ai/settings" && method==="GET")return sendJson(response,200,await service.settings.view());
+          if(pathname==="/api/v1/ai/status" && method==="GET")return sendJson(response,200,service.status());
+          if(pathname==="/api/v1/ai/settings" && method==="PUT")return sendJson(response,200,await service.configure(await readJsonBody(request)));
+          if(pathname==="/api/v1/ai/groq/settings" && method==="GET")return sendJson(response,200,await service.groqSettings.view());
+          if(pathname==="/api/v1/ai/groq/settings" && method==="PUT")return sendJson(response,200,await service.configureGroq(await readJsonBody(request)));
+          if(pathname==="/api/v1/ai/groq/check" && method==="POST")return sendJson(response,200,await service.checkGroq());
+          if(pathname==="/api/v1/ai/groq/models" && method==="GET")return sendJson(response,200,await service.listGroqModels());
+          if(pathname==="/api/v1/ai/check" && method==="POST"){
+            const body=await readJsonBody(request) as {component?:string};
+            if(body.component&&!(["all","openai","mcp","tunnel"].includes(body.component)))throw new Error("Invalid diagnostic component");
+            return sendJson(response,200,await service.diagnostics(body.component as "all"|"openai"|"mcp"|"tunnel"|undefined));
+          }
+          if(pathname==="/api/v1/ai/tunnel/restart" && method==="POST")return sendJson(response,200,await service.restartTunnel());
+          if(pathname==="/api/v1/ai/jobs" && method==="POST")return sendJson(response,202,await service.start(await readJsonBody(request)));
+          const stream=/^\/api\/v1\/ai\/jobs\/([a-f0-9-]+)\/events$/.exec(pathname);
+          if(stream&&method==="GET"){
+            const id=stream[1]!,scope={profileId:requireInteger(url.searchParams.get("profileId")??undefined,"profileId"),machineId:requireInteger(url.searchParams.get("machineId")??undefined,"machineId")};
+            let cursor=Number(url.searchParams.get("cursor")??0),job=service.job(id,scope,cursor),closed=false;
+            response.writeHead(200,{"content-type":"text/event-stream","cache-control":"no-store","x-accel-buffering":"no"});
+            response.on("close",()=>{closed=true;if(job.state==="running")try{service.job(id,scope,0,true);}catch{/* Job may have been cleared. */}});
+            while(!closed){
+              if(job.events.length||job.state!=="running")response.write(`data: ${JSON.stringify(job)}\n\n`);
+              cursor=job.nextCursor;if(job.state!=="running")break;
+              await new Promise<void>(resolve=>setTimeout(resolve,100));if(closed)break;
+              try{job=service.job(id,scope,cursor);}catch{response.write(`event: error\ndata: ${JSON.stringify({error:"AI conversation was cleared"})}\n\n`);break;}
+            }
+            response.end();return;
+          }
+          const job=/^\/api\/v1\/ai\/jobs\/([a-f0-9-]+)$/.exec(pathname);
+          if(job&&(method==="GET"||method==="DELETE"))return sendJson(response,200,service.job(job[1]!,{profileId:requireInteger(url.searchParams.get("profileId")??undefined,"profileId"),machineId:requireInteger(url.searchParams.get("machineId")??undefined,"machineId")},Number(url.searchParams.get("cursor")??0),method==="DELETE"));
+          if(pathname==="/api/v1/ai/history"&&method==="DELETE"){
+            const body=await readJsonBody(request) as {profileId:number;machineId:number;conversationId?:string};
+            await service.clear(scopeSchema.parse({profileId:body.profileId,machineId:body.machineId}),body.conversationId);return sendNoContent(response);
+          }
+          throw new Error("Unknown AI endpoint");
+        }catch(error){const message=error instanceof Error?error.message:"AI operation failed";throw new HttpError(400,message.length>600||message.startsWith("[")?"Invalid AI request":message);}
+      }
+
+      if (pathname.startsWith("/api/v1/expert/")) {
+        if (isLoopback(host) && !isLoopback(url.hostname)) throw new HttpError(403, "Invalid local Expert host");
+        const origin = request.headers.origin;
+        if (origin && origin !== url.origin) throw new HttpError(403, "Cross-origin Expert access is disabled");
+        const service = expertService(options.databasePath);
+        try {
+          if (pathname === "/api/v1/expert/settings" && method === "GET") return sendJson(response,200,await service.settings());
+          if (pathname === "/api/v1/expert/settings" && method === "PUT") return sendJson(response,200,await service.configure(await readJsonBody(request)));
+          if (pathname === "/api/v1/expert/models" && method === "GET") return sendJson(response,200,await service.models());
+          if (pathname === "/api/v1/expert/check" && method === "POST") return sendJson(response,200,await service.check());
+          if (pathname === "/api/v1/expert/diagnostics" && method === "GET") return sendJson(response,200,service.diagnostics());
+          if (pathname === "/api/v1/expert/reviews" && method === "POST") return sendJson(response,202,await service.start(await readJsonBody(request)));
+          const job = /^\/api\/v1\/expert\/reviews\/([a-f0-9-]+)$/.exec(pathname);
+          if (job && (method === "GET" || method === "DELETE")) return sendJson(response,200,service.job(job[1]!, { profileId: requireInteger(url.searchParams.get("profileId") ?? undefined,"profileId"),machineId: requireInteger(url.searchParams.get("machineId") ?? undefined,"machineId") },method === "DELETE"));
+          throw new HttpError(404,"Expert endpoint not found");
+        } catch (error) {
+          if (error instanceof HttpError) throw error;
+          const message = error instanceof Error ? error.message : "Expert request failed";
+          throw new HttpError(400,message.length > 600 || message.startsWith("[") ? "Invalid Expert request or response" : message);
+        }
+      }
 
       if (method === "GET" && pathname === "/api/v1/health") {
         return sendJson(response, 200, {
@@ -593,6 +662,7 @@ export async function startOscarApiServer(options: OscarApiServerOptions): Promi
     server.listen(port, host, () => { server.off("error", reject); resolve(); });
   });
   mediaWatcher?.start();
+  void (options.ai ?? aiService(options.databasePath)).initialize().catch(()=>{});
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("Could not resolve API server address");
   const actualPort = address.port;
@@ -603,10 +673,13 @@ export async function startOscarApiServer(options: OscarApiServerOptions): Promi
     port: actualPort,
     baseUrl,
     docsUrl: `${baseUrl}/docs`,
-    close: () => new Promise<void>((resolve, reject) => {
+    close: async () => {
+      await (options.ai ?? aiService(options.databasePath)).close();
+      return new Promise<void>((resolve, reject) => {
       mediaWatcher?.stop();
       server.close((error: unknown) => error ? reject(error) : resolve());
-    }),
+      });
+    },
   };
 }
 

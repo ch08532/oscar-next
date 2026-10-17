@@ -1,5 +1,34 @@
 # OSCAR Next 2.3.0 Windows validation — 2026-10-10
 
+## Shared Expert provider interface — 2026-10-17
+
+Environment remains Windows NT 10.0.26200.0, Node v24.21.0, npm 11.19.0.
+`npm run verify`: **PASS** (228 passed, 2 optional skips; demo smoke PASS).
+`npx tsc -p apps/desktop/tsconfig.json --noEmit`,
+`npm --prefix apps/desktop run build`, and
+`npm --prefix apps/desktop run build:headless`: **PASS**. The shared Expert screen
+uses Local Ollama or OpenAI with isolated conversations. Local generation retains
+the original validated review/evidence path and needs no cloud configuration.
+Seven added regressions pass. Manual GUI/provider-switch/evidence navigation and
+real-model acceptance remain unclaimed. See [AI validation](OSCAR-AI-VALIDATION.md).
+
+## OSCAR AI implementation checks — 2026-10-17
+
+Environment: Microsoft Windows NT 10.0.26200.0, Node v24.21.0, npm 11.19.0.
+`npm install`, `npm --prefix apps/desktop install`, `npm run verify`,
+`npx tsc -p apps/desktop/tsconfig.json --noEmit`,
+`npm --prefix apps/desktop run build` and
+`npm --prefix apps/desktop run build:headless`: **PASS**. Final verification:
+221 passed, 2 optional Ollama checks skipped, demo smoke PASS. Desktop install
+reported 10 audit findings; renderer builds emitted advisory Zod-comment/chunk
+warnings. No real account/tunnel credentials or tunnel binary were used.
+
+The synthetic/mocked tests and real owned-child termination test do not mark
+Electron GUI, keychain, real tunnel, installer or Raspberry Pi checklist items
+complete. See [OSCAR-AI-VALIDATION.md](OSCAR-AI-VALIDATION.md) for checks, fixes,
+runtime provisioning and remaining blockers. Headless credentials remain
+memory-only; forced-parent crash cleanup is not guaranteed.
+
 ## Respiratory-index fallback follow-up — 2026-10-12
 
 - A read-only check of the default desktop database confirmed that the reported
@@ -526,3 +555,294 @@ Electron visual validation and packaging were not repeated for this adjustment.
   Physical mouse, other GPUs and Pi remain untested. Synthetic data only.
 - See [Daily chart performance validation](DAILY-CHART-PERFORMANCE-VALIDATION.md)
   for methods, measured comparisons, exact checks and limitations.
+
+### Follow-up — local AI setup script (2026-10-14)
+
+- Windows NT 10.0.26200.0 (`[Environment]::OSVersion.VersionString`),
+  Node v24.21.0, npm 11.19.0.
+- Baseline `npm install`: PASS. Baseline `npm run verify`: PASS, 188 tests
+  passed, one optional real-Ollama test skipped, synthetic demo smoke PASS.
+- Final `npm test` (includes TypeScript build): PASS, 191 passed, one optional
+  real-Ollama test skipped. Three new PowerShell tests exercise the actual
+  setup helpers with offline mocks: unsafe names are rejected before effects,
+  failed installer/download commands stop setup, installed software is reused,
+  and remote-backed or tool-incompatible model metadata is rejected.
+- An initial test compile failed because the repository's minimal Buffer types
+  do not support encoded-command construction. Tests now pass commands directly
+  as `execFile` arguments. The first PowerShell test run then returned failure
+  exit codes after expected caught exceptions; the test harness now explicitly
+  exits zero after assertions and exits nonzero on unexpected exceptions.
+- Actual `powershell -NoProfile -ExecutionPolicy Bypass -File
+  .\scripts\windows-local-ai.ps1`: NOT RUN. This task created the installer;
+  no Ollama installation, persistent user environment change, live process
+  restart or multi-GB model download was performed in validation.
+- Actual `qwen3.5:4b` inference, Expert UI compatibility checks, review quality,
+  GPU acceleration, memory requirements and post-reboot startup: NOT RUN.
+  The script checks installed metadata only; the application's synthetic
+  compatibility probes remain required before reviews. No therapy data used.
+
+### Follow-up — Qwen local-weight metadata rejection (2026-10-14)
+
+- Windows NT 10.0.26200.0, Node v24.21.0, npm 11.19.0; live Ollama 0.40.4.
+- Root cause confirmed by read-only `/api/show` for installed `qwen3.5:4b`:
+  no remote fields, nonempty model information, advertised tools, but license
+  text contains `Copyright 2026 Alibaba Cloud`. Both the installer and provider
+  previously searched the entire Modelfile for `cloud` and rejected it.
+- `npm install`: PASS. Baseline `npm run verify`: PASS, 191 passed, one skipped,
+  synthetic demo smoke PASS.
+- Added regression fixtures containing the license text. Command:
+  `npm run build`, then `node --test --test-name-pattern "license text|reuses installation"
+  dist/tests/expert.test.js dist/tests/windows-local-ai.test.js`: two failures
+  before the fix, two passes after. Cloud FROM declarations, explicit remote
+  metadata and missing weights remain rejected. No therapy context used.
+- Final `npm run verify`: PASS, 192 passed, one optional real-model test skipped,
+  synthetic demo smoke PASS. `git diff --check`: PASS.
+- Updated script checked against actual installed model metadata with install,
+  environment, process-start and pull helpers replaced by no-op mocks: PASS.
+  The live `/api/show` was used; no software reinstall, download, process restart
+  or persistent environment changes were performed by this check.
+- Real-model command: `$env:OSCAR_TEST_OLLAMA_MODEL = 'qwen3.5:4b'; node --test
+  --test-name-pattern 'Optional real Ollama compatibility' dist/tests/expert.test.js`:
+  PASS, one test, approximately 126 seconds. This checks downloaded local weights,
+  actual chat, tool calling and schema-constrained JSON with synthetic prompts
+  only. It does not validate therapy review accuracy or manual UI behavior.
+
+### Follow-up — review type mismatch (2026-10-14)
+
+- Windows NT 10.0.26200.0, Node v24.21.0, npm 11.19.0.
+- Root cause: model generation used a generic output schema permitting all three
+  review types, then rejected output when it differed from the selected request.
+  Generation now uses a literal request-specific type and repeats that type in
+  the final instruction. Prompt version is 2; persisted/public schemas are unchanged.
+  The existing mismatch, evidence and treatment-boundary checks remain active.
+- `npm install`: PASS. Baseline `npm run verify`: PASS, 192 passed, one skipped,
+  demo smoke PASS.
+- `npm run build`, then `node --test --test-name-pattern 'constrains generated review type'
+  dist/tests/expert.test.js`: regression FAIL before the fix (no literal type),
+  PASS afterward across night, trend and question requests. An initial test
+  compile needed an explicit undefined guard because the repository's minimal
+  assertion typings do not narrow optional array entries.
+- Final `npm run verify`: PASS, 193 passed, two opt-in real-model tests skipped;
+  demo smoke PASS. Includes wrong-type output rejection and REST job lifecycle
+  with prompt version 2. `git diff --check`: PASS.
+- Added an opt-in complete synthetic night-review test using
+  `OSCAR_TEST_OLLAMA_REVIEW_MODEL`, separate from the capability-only test. It
+  creates and removes its own synthetic database; no real therapy data is read.
+- Actual command: `$env:OSCAR_TEST_OLLAMA_REVIEW_MODEL = 'qwen3.5:4b'; node --test
+  --test-name-pattern 'Optional real Ollama synthetic night review' dist/tests/expert.test.js`:
+  PASS, approximately 99 seconds, context size 8192. The complete orchestrator
+  returned a validated night review with existing evidence IDs and prompt version 2.
+  This is synthetic integration validation, not clinical validation. Manual UI
+  and actual user-data review behavior remain unverified.
+
+### Follow-up — invalid structured review recovery (2026-10-14)
+
+- The user clarified that the remaining message is `Invalid structured review;
+  no result accepted`, not the earlier review-type mismatch. This originates in
+  JSON parsing, before schema/evidence validation. The specific malformed output
+  was not inspected; no real therapy prompts/responses were accessed or logged.
+- Root and desktop `npm install`: PASS. Desktop reported existing dependency
+  audit findings (8 moderate, 2 high); no dependency upgrades were made.
+  Baseline `npm run verify`: PASS, 193 passed, two skipped, demo smoke PASS.
+- Provider now recognizes empty structured content and Ollama's `done_reason:
+  length`. The orchestrator regenerates empty, truncated or malformed JSON once
+  with concise-output instructions, preserving the selected type, evidence,
+  original deadline and tool limits. It discards invalid text, does not extract
+  or repair JSON, and never retries schema/evidence/treatment-boundary failures.
+  Prompt version is 3. A repeated failure distinguishes empty output, token-limit
+  exhaustion and malformed JSON; type mismatch includes expected/received enums.
+- Regression tests exercise recovery of all three failure categories, same
+  schema/scope, absence of rejected output from retry context, exactly one retry,
+  and native HTTP empty/truncation responses. `npm run verify`: PASS, 196 passed,
+  two opt-in model tests skipped; demo smoke PASS. `git diff --check`: PASS.
+- A repeat of the unchanged prompt-v2 synthetic real-model night review passed
+  in approximately 62 seconds before these changes. This did not reproduce the
+  user's malformed response; it does not establish their specific failure cause.
+- Updated prompt-v3 real-model command:
+  `$env:OSCAR_TEST_OLLAMA_REVIEW_MODEL = 'qwen3.5:4b'; node --test
+  --test-name-pattern 'Optional real Ollama synthetic night review' dist/tests/expert.test.js`:
+  PASS, approximately 51 seconds, context 8192, synthetic database only.
+  The live test returned valid JSON directly; automatic recovery is validated
+  by synthetic provider/HTTP fixtures, not by that successful live response.
+  Manual UI and the user's actual failing review remain unverified.
+
+### Follow-up — confirmed output-token exhaustion (2026-10-14)
+
+- User's new error confirms Ollama ended structured generation at its token cap.
+  Root cause in the integration: the generation schema permitted up to 24 long
+  observations plus large prose/evidence lists, but both generation attempts
+  used a 3,000-token output limit. Concise prose instructions alone did not
+  constrain the schema. No failing therapy prompt or response was accessed.
+- Prompt v4 uses a concise generation schema: at most two positive findings and
+  two items to review, explanations at most 350 characters, summary at most 600,
+  two short clinician questions, three short limitations and eight evidence IDs.
+  Runtime validation enforces the same bounds. Public/persisted schemas remain
+  unchanged. Structured generation is bounded to 4,096 tokens; tool-selection
+  generation retains 3,000. The original scope/deadline, one regeneration and
+  evidence/treatment checks remain enforced; truncated output is never accepted.
+- `npm install`: PASS. Baseline `npm run verify`: PASS, 196 passed, two skipped,
+  demo smoke PASS. Regression command `npm run build`, then `node --test
+  --test-name-pattern 'constrains generated review type|reserves a larger'
+  dist/tests/expert.test.js`: two FAIL before (12 items vs 2; 3,000 vs 4,096 tokens),
+  PASS after. Additional coverage rejects oversized output without regeneration.
+- Final `npm run verify`: PASS, 198 passed, two opt-in tests skipped, demo smoke
+  PASS. `git diff --check`: PASS. A prompt-v4 real `qwen3.5:4b` synthetic night
+  review using the compact schema/output budget passed in approximately 56 seconds.
+  No real health data used. An experimental READY-phase instruction then caused
+  the real model to request an invalid waveform window (longer than one hour).
+  The guard correctly rejected it. That instruction was removed; no range/tool
+  validation was relaxed. The fix retains the original tool-selection prompt.
+- Final recovery command: `$env:OSCAR_TEST_OLLAMA_REVIEW_MODEL = 'qwen3.5:4b';
+  $env:OSCAR_TEST_OLLAMA_FORCE_RETRY = '1'; node --test --test-name-pattern
+  'Optional real Ollama synthetic night review' dist/tests/expert.test.js`:
+  PASS, approximately 49 seconds, context 8192. The test injects a synthetic
+  token-limit failure at the first structured attempt, then asks the actual model
+  to regenerate. The resulting compact JSON passes all validation. This verifies
+  the recovery path with a real model, not naturally occurring token exhaustion.
+  User's original failing review and manual UI remain unverified.
+
+### Follow-up — actual September 9 context-window exhaustion (2026-10-14)
+
+- Root and architecture/provider/orchestrator docs and tests reviewed.
+  `npm install`: PASS. Baseline `npm run verify`: PASS, 198 passed, two skipped,
+  synthetic demo smoke PASS. Windows NT 10.0.26200.0, Node v24.21.0,
+  npm 11.19.0, configured local `qwen3.5:4b`.
+- User identified the failing night as 2026-09-09. Read-only local reproduction
+  used the active profile's existing database through ExpertTools and the
+  user's enabled loopback Ollama configuration. No database/settings/media
+  writes, therapy payload files, raw prompt/response logs or identifiers.
+  The ignored local helper emits only token counts, content lengths, completion
+  reasons and JSON validity. Saved context was **4096**, not the tested 8192.
+- Actual structured response: prompt 3,406 tokens, output 690 tokens,
+  `done_reason: length`, malformed JSON. Total equals 4,096. Retry: prompt 3,477,
+  output 619, total again 4,096. Neither reached the 4,096 output-token budget.
+  This confirms the root cause is context exhaustion; the previous error label
+  conflated two distinct limits.
+- Same existing night and model, with a process-only context override of 8192:
+  PASS. Structured prompt 5,549 tokens, output 935, `done_reason: stop`, complete
+  JSON validated by the orchestrator. About 53 seconds. The user's saved setting
+  was not overwritten; they must select 8192 in the UI, save, then test compatibility.
+- Provider now identifies confirmed full-context completion from native prompt
+  and generated token counts, and gives a context-setting error. Orchestrator
+  avoids an ineffective regeneration in the same full context. Missing counters
+  retain conservative generic handling. Public schemas/prompt v4 unchanged.
+- Regression command `npm run build`, then `node --test --test-name-pattern
+  'distinguishes a full context' dist/tests/expert.test.js`: FAIL before,
+  PASS after. Includes separation from genuine output-token exhaustion and
+  no-retry coverage for full context. Final `npm run verify`: PASS, 200 passed,
+  two opt-in tests skipped; demo smoke PASS.
+- Validation establishes local generation/JSON/schema/evidence compatibility,
+  not clinical accuracy. Manual UI confirmation of the setting change is pending.
+
+### Groq provider — 2026-10-17
+
+- Windows NT 10.0.26200.0; Node v24.21.0; npm 11.19.0. Existing dependencies
+  reused; no new dependencies. Baseline `npm run verify`: PASS, 228 passed,
+  two optional skips; synthetic demo smoke PASS.
+- Final `npm run verify`: PASS, 240 passed, two optional Ollama skips, demo
+  smoke PASS. Twelve synthetic/mocked Groq tests cover tool and date guards,
+  streaming, secrets, cancellation, history isolation and authenticated REST.
+- `npx tsc -p apps/desktop/tsconfig.json --noEmit`: PASS.
+  `npm --prefix apps/desktop run build`: PASS.
+  `npm --prefix apps/desktop run build:headless`: PASS.
+  Both builds emit advisory Zod comment-annotation and >500 kB chunk warnings.
+- `node scripts/update-ai-openapi.mjs`: PASS. Groq shares the Expert UI,
+  preload/REST boundary and read-only scoped tools; it needs no public MCP tunnel.
+- PENDING: Live Groq key/model/account settings, inference and rate limits,
+  manual UI interaction, actual OS-encrypted credential persistence after restart,
+  installer and Raspberry Pi acceptance. No live Groq call or real therapy
+  upload was made. See `OSCAR-AI-VALIDATION.md` and `GROQ.md`.
+
+### AI backend folder organization — 2026-10-17
+
+- Windows NT 10.0.26200.0, Node v24.21.0, npm 11.19.0. Provider adapters moved
+  into separate folders; shared configuration, tool guards and MCP transport
+  grouped by responsibility. Runtime behavior and persisted formats unchanged.
+- Baseline and final `npm run verify`: PASS, 240 passed, two optional Ollama
+  skips; demo smoke PASS. Existing dependencies reused.
+- `npx tsc -p apps/desktop/tsconfig.json --noEmit`: PASS.
+  `npm --prefix apps/desktop run build`: PASS.
+  `npm --prefix apps/desktop run build:headless`: PASS. Existing Zod annotation
+  and >500 kB chunk advisories remain.
+- OpenAPI generator runs from its new settings import; generated contract
+  unchanged. `git diff --check`: PASS. No live-provider/manual UI checks added.
+
+### Settings tabs and centralized AI settings — 2026-10-17
+
+- Windows NT 10.0.26200.0, Node v24.21.0, npm 11.19.0; existing session
+  dependencies reused. All provider forms moved out of Expert into Settings →
+  AI. Categories: General, Therapy & graphs, AI, Connection. Expert links to AI.
+- Baseline and post-change `npm run verify`: PASS, 240 passed, two optional
+  Ollama skips; demo smoke PASS. After final Groq message updates, `npm run build`
+  and `node --test dist/tests/groq.test.js`: PASS, 12 tests.
+- `npx tsc -p apps/desktop/tsconfig.json --noEmit`: PASS.
+  `npm --prefix apps/desktop run build`: PASS.
+  `npm --prefix apps/desktop run build:headless`: PASS. Existing Zod annotation
+  and >500 kB chunk advisories remain. `git diff --check`: PASS.
+- One-off esbuild/React server-render checks: PASS for tab/category markup and
+  provider forms appearing only in Settings → AI. PENDING: actual Electron and
+  browser navigation/layout, keyboard focus and preservation of draft values
+  across tabs. No live AI calls or real health-data exports were made.
+
+### Provider selector and selected settings only — 2026-10-17
+
+- Windows NT 10.0.26200.0, Node v24.21.0, npm 11.19.0. Provider choice moved
+  to Settings → AI. Only its matching form mounts; Expert displays the active
+  choice. Client preference is saved locally, with Local Ollama as the fallback.
+- Existing session dependencies reused. Baseline/final `npm run verify`: PASS,
+  240 passed, two optional skips; demo smoke PASS. Renderer TypeScript check,
+  desktop and headless builds: PASS with existing annotation/chunk warnings.
+- One-off esbuild/React render checks: PASS for Settings-only selector, selected
+  form only, correct Expert label, stored preference and storage failures.
+  `git diff --check`: PASS. PENDING: actual UI navigation/reload on Electron and
+  browser. No live-provider requests or real therapy exports.
+
+### Local Ollama settings appearance — 2026-10-17
+
+- Windows NT 10.0.26200.0, Node v24.21.0, npm 11.19.0; existing dependencies
+  reused. Replaced the outer Local Ollama accordion with the same card heading,
+  spacing, stacked controls and primary Save action used by the cloud providers.
+  Diagnostics retains its own disclosure. No API/settings behavior changed.
+- Baseline `npm run verify`: PASS, 240 passed, two optional skips, smoke PASS.
+  Post-change renderer TypeScript, desktop and headless builds: PASS. Existing
+  Zod annotation/chunk warnings remain. `git diff --check`: PASS.
+- One-off React/esbuild desktop/browser render checks: PASS for visible card
+  heading/actions, no outer accordion and retained diagnostics. Actual visual
+  acceptance remains pending; no live provider or real therapy data was used.
+
+### Groq save/test and unavailable-model recovery — 2026-10-17
+
+- Windows NT 10.0.26200.0, Node v24.21.0, npm 11.19.0. User's actual error was
+  an unavailable model during the upstream probe. Added model discovery and a
+  selection list, explicit save/key status, failed-save retry preservation and
+  saving current form values before Refresh/Test. No plaintext secret storage.
+- Existing dependencies reused. Baseline `npm run verify`: PASS, 240 passed,
+  two optional skips; smoke PASS. New discovery tests fail before implementation.
+  Final `npm run verify`: PASS, 242 passed, two optional skips; smoke PASS.
+  Groq/preload tests: 15 PASS. Renderer TypeScript and desktop/headless builds:
+  PASS; existing annotation/chunk advisories remain. OpenAPI generation and
+  `git diff --check`: PASS.
+- One-off mocked hook/action checks: PASS for failed/successful saves,
+  save-before-test, discovery and model replacement. A hidden Electron synthetic
+  storage probe produced no usable result; no Windows OS-storage PASS is claimed.
+  PENDING: live account/model access, actual keychain persistence and interactive
+  desktop/browser acceptance. No real key was read/logged or paid inference run.
+  Desktop restart is required for the additional IPC/preload model-list method.
+
+### Expert Markdown formatting — 2026-10-17
+
+- Windows NT 10.0.26200.0, Node v24.21.0, npm 11.19.0. Cloud assistant text
+  now renders Markdown/GFM with themed headings, lists and scrollable tables.
+  Raw HTML, unsafe links and external image loads are blocked. User text and
+  structured local review cards keep their existing presentation.
+- Baseline/final `npm run verify`: PASS, 242 passed, two optional skips, smoke
+  PASS. `npm --prefix apps/desktop run test:markdown`: three PASS (failed before
+  implementation). Renderer TypeScript, desktop/headless builds and
+  `git diff --check`: PASS. Existing Zod/chunk-size warnings remain.
+- Added react-markdown 10.1.0 and remark-gfm 4.0.1. Initial install failed with
+  EPERM against the global npm cache; `npm --prefix apps/desktop install
+  react-markdown remark-gfm --cache ./.cache/npm`: PASS. Desktop audit remains
+  8 moderate/2 high findings, as previously recorded. Workspace cache ignored.
+- PENDING: visual desktop/browser checks, both themes and narrow-screen table
+  scrolling. All test text is synthetic; no real therapy payload was committed
+  and no live AI or external image requests were made.

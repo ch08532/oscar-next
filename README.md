@@ -1,5 +1,16 @@
 # OSCAR Next — TypeScript migration
 
+**OSCAR Expert:** One shared Daily, Trend, Compare and Ask Anything interface
+supports **Local Ollama**, **OpenAI** and **Groq**. Choose the provider in **Settings → AI**;
+local is the default. Local reviews retain validated evidence links; OpenAI
+answers stream through a private managed tunnel. Provider conversations stay
+separate. See [setup, privacy and runtime provisioning](OSCAR-AI.md) and
+[Groq setup](GROQ.md). OpenAI needs a verified tunnel runtime supplied by the
+installer; Groq executes scoped tools on the backend and needs no tunnel.
+Settings → AI shows only the selected provider's configuration. The provider
+choice is saved on this device and used by Expert. Settings groups appearance,
+therapy/graphs, AI and connection information into separate tabs.
+
 > **Codex handoff:** coding agents should read [`AGENTS.md`](AGENTS.md), [`CODEX_HANDOFF.md`](CODEX_HANDOFF.md), and [`CODEX_FIRST_TASK.md`](CODEX_FIRST_TASK.md) before making changes.
 
 This repository is an incremental TypeScript migration of the `operativeF/oscar` CPAP analysis codebase. The migration preserves OSCAR data semantics first, then replaces the Qt desktop/UI layer later.
@@ -389,7 +400,7 @@ Signed Flow and the uninterpreted respiratory event signal remain chart-only
 and unsupported, respectively. Existing AHI, Daily metric cards and aggregate
 Statistics calculations retain their conventions.
 
-In **Settings → Therapy Analysis**, set the device's **Large Leak Threshold**
+In **Settings → Therapy & graphs → Therapy Analysis**, set the device's **Large Leak Threshold**
 (default **24 L/min**) and choose whether to show its dashed Leak graph reference
 line. Leak Analysis reports recorded seconds strictly above the threshold and
 their percentage of included mask-on therapy time. It also shows recording
@@ -733,3 +744,19 @@ On Overview and Statistics, the shared therapy-history filter is integrated into
 the sticky top bar. Custom date fields, presets, the complete timeline and its
 handles stay visible as charts/tables scroll. Statistics export buttons remain
 with the date selection. The compact header wraps its controls at laptop widths.
+
+### OSCAR Expert (optional local AI)
+
+Open **Expert** under Analysis for night, trend/comparison and therapy-question
+reviews. Install Ollama and a compatible downloaded model on the backend's
+computer, disable Ollama cloud features, then enable local reviews and test the
+model in **Settings → AI → Local Ollama settings**. Reviews are ephemeral, evidence-backed educational
+output; tools cannot change therapy or imported data. Desktop and browser use
+the same screen and scoped backend tools. No AI service or model is required for
+the rest of OSCAR Next.
+
+See [local AI setup and limits](LOCAL-AI.md), [MCP client setup](MCP.md),
+[implementation plan](AI-EXPERT-PLAN.md), and
+[actual validation results](AI-EXPERT-VALIDATION.md). External MCP clients expose
+the same read-only tools but control their own model/data handling. Real Ollama
+model validation remains pending in the implementation environment.

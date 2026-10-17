@@ -3,6 +3,32 @@ import { contextBridge, ipcRenderer } from "electron";
 // Sandboxed Electron preloads require CommonJS, even when the main process uses ESM.
 
 contextBridge.exposeInMainWorld("oscar", {
+  getExpertSettings: () => ipcRenderer.invoke("expert:getSettings"),
+  getAISettings: () => ipcRenderer.invoke("ai:settings"),
+  getGroqSettings: () => ipcRenderer.invoke("ai:groqSettings"),
+  configureGroq: (settings: unknown) => ipcRenderer.invoke("ai:groqConfigure", settings),
+  testGroq: () => ipcRenderer.invoke("ai:groqCheck"),
+  listGroqModels: () => ipcRenderer.invoke("ai:groqModels"),
+  getAIStatus: () => ipcRenderer.invoke("ai:status"),
+  configureAI: (settings: unknown) => ipcRenderer.invoke("ai:configure", settings),
+  testAI: (component?: string) => ipcRenderer.invoke("ai:check", component),
+  restartAITunnel: () => ipcRenderer.invoke("ai:restart"),
+  startAI: (request: unknown) => ipcRenderer.invoke("ai:start", request),
+  getAIJob: (id: string, scope: unknown, cursor: number) => ipcRenderer.invoke("ai:job", id, scope, cursor),
+  watchAIJob: (id: string, scope: unknown, cursor: number, update: (job:any)=>void, error: ()=>void) => {
+    let stopped=false;let timer:ReturnType<typeof setTimeout>;
+    const poll=async()=>{try{const job=await ipcRenderer.invoke("ai:job",id,scope,cursor);if(stopped)return;cursor=job.nextCursor;update(job);if(job.state==="running")timer=setTimeout(()=>void poll(),200);}catch{if(!stopped)error();}};
+    void poll();return ()=>{stopped=true;clearTimeout(timer);};
+  },
+  cancelAI: (id: string, scope: unknown) => ipcRenderer.invoke("ai:cancel", id, scope),
+  clearAIHistory: (scope: unknown, conversationId?: string) => ipcRenderer.invoke("ai:clear", scope, conversationId),
+  configureExpert: (settings: unknown) => ipcRenderer.invoke("expert:configure", settings),
+  listExpertModels: () => ipcRenderer.invoke("expert:listModels"),
+  testExpertModel: () => ipcRenderer.invoke("expert:check"),
+  startExpertReview: (request: unknown) => ipcRenderer.invoke("expert:start", request),
+  getExpertReview: (id: string, scope: unknown) => ipcRenderer.invoke("expert:job", id, scope),
+  cancelExpertReview: (id: string, scope: unknown) => ipcRenderer.invoke("expert:cancel", id, scope),
+  getExpertDiagnostics: () => ipcRenderer.invoke("expert:diagnostics"),
   getAppInfo: () => ipcRenderer.invoke("app:getInfo"),
   getSetupState: () => ipcRenderer.invoke("setup:getState"),
   completeSetup: (name: string, timeZone: string) => ipcRenderer.invoke("setup:complete", name, timeZone),

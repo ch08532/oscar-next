@@ -1,10 +1,10 @@
-import { Activity, CalendarDays, ChartNoAxesCombined, ChartBar, FileText, Rows3, Download, HardDrive, UserRound, Settings, Code2, ClipboardCheck, PanelLeftClose, PanelLeftOpen, type LucideIcon } from "lucide-react";
+import { BrainCircuit, Activity, CalendarDays, ChartNoAxesCombined, ChartBar, FileText, Rows3, Download, HardDrive, UserRound, Settings, Code2, ClipboardCheck, PanelLeftClose, PanelLeftOpen, type LucideIcon } from "lucide-react";
 import type { ProfileSummary } from "../types";
 
-export type AppView = "daily" | "overview" | "statistics" | "reports" | "sessions" | "devices" | "profiles" | "settings" | "api" | "diagnostics";
+export type AppView = "expert" | "daily" | "overview" | "statistics" | "reports" | "sessions" | "devices" | "profiles" | "settings" | "api" | "diagnostics";
 const groups: { label: string; items: { view?: AppView; label: string; icon: LucideIcon; action?: "import" }[] }[] = [
   { label: "Therapy", items: [{ view: "daily", label: "Daily", icon: CalendarDays }, { view: "overview", label: "Overview", icon: ChartNoAxesCombined }, { view: "statistics", label: "Statistics", icon: ChartBar }] },
-  { label: "Analysis", items: [{ view: "reports", label: "Reports", icon: FileText }, { view: "sessions", label: "Sessions", icon: Rows3 }] },
+  { label: "Analysis", items: [{ view: "expert", label: "Expert", icon: BrainCircuit }, { view: "reports", label: "Reports", icon: FileText }, { view: "sessions", label: "Sessions", icon: Rows3 }] },
   { label: "Data", items: [{ action: "import", label: "Import Data", icon: Download }, { view: "devices", label: "Devices", icon: HardDrive }] },
   { label: "System", items: [{ view: "profiles", label: "Profiles", icon: UserRound }, { view: "settings", label: "Settings", icon: Settings }, { view: "api", label: "API / Swagger", icon: Code2 }, { view: "diagnostics", label: "Diagnostics", icon: ClipboardCheck }] },
 ];

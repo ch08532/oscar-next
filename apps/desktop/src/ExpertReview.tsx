@@ -1,0 +1,10 @@
+import type { EvidenceReference, ReviewResult } from "../../../src/expert/schemas.js";
+
+export function ExpertReview({result,onEvidence}:{result:ReviewResult;onEvidence(evidence:EvidenceReference):void}){
+  return <div><p className="my-3 whitespace-pre-wrap">{result.review.summary}</p>
+    {([["Positive findings",result.review.positiveFindings],["Items to review",result.review.itemsToReview]] as const).map(([heading,observations])=><section key={heading} className="mt-5"><h3 className="font-semibold">{heading}</h3>{!observations.length&&<p className="mt-2 text-sm text-[var(--muted)]">None reported.</p>}{observations.map(observation=><article key={observation.id} className="expert-observation"><p className="text-xs text-[var(--muted)]">{observation.severity} · {observation.confidence} confidence</p><h4 className="my-2 font-semibold">{observation.title}</h4><p className="whitespace-pre-wrap text-sm">{observation.explanation}</p><div className="mt-3 flex flex-wrap gap-2">{observation.evidenceIds.map(id=>{const evidence=result.evidence.find(item=>item.id===id);return evidence?<button key={id} className="secondary" onClick={()=>onEvidence(evidence)}>Show evidence · {evidence.date??evidence.startDate}</button>:null;})}</div></article>)}</section>)}
+    <h3 className="mt-5 font-semibold">Questions for your clinician</h3><ul className="mt-2 list-disc space-y-2 pl-5 text-sm">{result.review.questionsForClinician.map((text,index)=><li key={index}>{text}</li>)}</ul>
+    <h3 className="mt-5 font-semibold">Limitations</h3><ul className="mt-2 list-disc space-y-2 pl-5 text-sm"><li>AI interpretations can be wrong even when references and JSON structure are valid. Verify measurements in OSCAR.</li>{result.review.limitations.map((text,index)=><li key={index}>{text}</li>)}</ul>
+    <p className="mt-4 text-xs text-[var(--muted)]">{result.model} · {result.generatedAt} · Queries {result.timings.toolsMs.toFixed(0)} ms · Model {(result.timings.generationMs/1000).toFixed(1)} s · Total {(result.timings.totalMs/1000).toFixed(1)} s. Reviews are temporary and are not saved as clinical data.</p>
+  </div>;
+}

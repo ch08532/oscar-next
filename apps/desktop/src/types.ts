@@ -1,3 +1,4 @@
+import type { ExpertSettings, ExpertRequest, Compatibility, ReviewJob, ReviewResult } from "../../../src/expert/schemas.js";
 
 export type { DailyChannelAnalysis, DailyChannelStatistics, TherapyAnalysisPreferences } from "../../../src/core/therapy-analysis.js";
 import type { DailyChannelAnalysis, TherapyAnalysisPreferences } from "../../../src/core/therapy-analysis.js";
@@ -209,6 +210,28 @@ export interface GraphBookmark {
 export interface AppInfo { version: string; packaged: boolean; platform: string; arch: string; }
 
 export interface OscarApi {
+  getGroqSettings(): Promise<import("../../../src/ai/contracts.js").GroqSettingsView>;
+  configureGroq(settings: import("../../../src/ai/contracts.js").GroqSettingsUpdate): Promise<import("../../../src/ai/contracts.js").GroqSettingsView>;
+  testGroq(): Promise<import("../../../src/ai/contracts.js").GroqConnectionCheck>;
+  listGroqModels(): Promise<string[]>;
+  getAISettings(): Promise<import("../../../src/ai/contracts.js").AISettingsView>;
+  getAIStatus(): Promise<import("../../../src/ai/contracts.js").AIDiagnostics>;
+  configureAI(settings: import("../../../src/ai/contracts.js").AISettingsUpdate): Promise<import("../../../src/ai/contracts.js").AISettingsView>;
+  testAI(component?: "all" | "openai" | "mcp" | "tunnel"): Promise<import("../../../src/ai/contracts.js").AIDiagnostics>;
+  restartAITunnel(): Promise<import("../../../src/ai/contracts.js").TunnelStatus>;
+  startAI(request: import("../../../src/ai/contracts.js").AIRequest): Promise<import("../../../src/ai/contracts.js").AIJob>;
+  getAIJob(id: string, scope: {profileId:number;machineId:number}, cursor: number): Promise<import("../../../src/ai/contracts.js").AIJob>;
+  watchAIJob(id: string, scope: {profileId:number;machineId:number}, cursor: number, update: (job:import("../../../src/ai/contracts.js").AIJob)=>void, error: ()=>void): ()=>void;
+  cancelAI(id: string, scope: {profileId:number;machineId:number}): Promise<import("../../../src/ai/contracts.js").AIJob>;
+  clearAIHistory(scope: {profileId:number;machineId:number}, conversationId?: string): Promise<void>;
+  getExpertSettings(): Promise<ExpertSettings>;
+  configureExpert(settings: ExpertSettings): Promise<ExpertSettings>;
+  listExpertModels(): Promise<Array<{ name: string; digest: string }>>;
+  testExpertModel(): Promise<Compatibility>;
+  startExpertReview(request: ExpertRequest): Promise<ReviewJob>;
+  getExpertReview(id: string, scope: { profileId: number; machineId: number }): Promise<ReviewJob>;
+  cancelExpertReview(id: string, scope: { profileId: number; machineId: number }): Promise<ReviewJob>;
+  getExpertDiagnostics(): Promise<{ tools: string[]; mcp: string; persistence: string; compatibility: Compatibility | null; lastTimings: ReviewResult["timings"] | null }>;
   getAppInfo(): Promise<AppInfo>;
   getSetupState(): Promise<SetupState>;
   completeSetup(name: string, timeZone: string): Promise<SetupState>;

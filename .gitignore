@@ -1,4 +1,5 @@
 node_modules/
+.cache/
 dist/
 *.log
 .DS_Store
@@ -8,3 +9,11 @@ apps/desktop/headless-dist/
 apps/desktop/release/
 *.sqlite-shm
 *.sqlite-wal
+*.expert.json
+*.expert-*.tmp
+*.ai.json
+*.ai.json.*.tmp
+*.groq.json
+*.groq.json.*.tmp
+runtime/tunnel-client/*
+!runtime/tunnel-client/README.md

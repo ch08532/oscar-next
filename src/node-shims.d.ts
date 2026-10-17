@@ -1,21 +1,26 @@
 declare const process: {
   argv: string[];
+  execPath: string;
   exitCode?: number;
   env: Record<string, string | undefined>;
   platform: string;
   arch: string;
   version: string;
   versions: Record<string, string | undefined>;
+  resourcesPath?: string;
   cwd(): string;
   exit(code?: number): never;
   on(event: string, callback: (...args: any[]) => void): void;
+  once(event: string, callback: (...args: any[]) => void): void;
+  stdin: { once(event: string, callback: (...args: any[]) => void): void };
 };
 
 declare module "node:fs/promises" {
   export function access(path: string): Promise<void>;
   export function readdir(path: string, options?: { withFileTypes?: boolean }): Promise<any[]>;
   export function readFile(path: string): Promise<Uint8Array>;
-  export function writeFile(path: string, data: string | Uint8Array): Promise<void>;
+  export function readFile(path: string, encoding: "utf8"): Promise<string>;
+  export function writeFile(path: string, data: string | Uint8Array, options?: { mode?: number }): Promise<void>;
   export function appendFile(path: string, data: string | Uint8Array): Promise<void>;
   export function rename(oldPath: string, newPath: string): Promise<void>;
   export function mkdir(path: string, options?: { recursive?: boolean }): Promise<void>;
@@ -25,6 +30,7 @@ declare module "node:fs/promises" {
 }
 
 declare module "node:os" {
+  export function homedir(): string;
   export function tmpdir(): string;
   export function platform(): string;
   export function release(): string;
@@ -42,6 +48,7 @@ declare module "node:path" {
 }
 
 declare module "node:url" {
+  export function pathToFileURL(path: string): URL;
   export function fileURLToPath(url: string | URL): string;
 }
 
@@ -51,6 +58,7 @@ declare module "node:zlib" {
 
 declare module "node:test" {
   export default function test(name: string, fn: () => void | Promise<void>): void;
+  export default function test(name: string, options: { skip?: boolean }, fn: () => void | Promise<void>): void;
 }
 
 declare module "node:assert/strict" {
@@ -59,6 +67,7 @@ declare module "node:assert/strict" {
     deepEqual(actual: unknown, expected: unknown, message?: string): void;
     ok(value: unknown, message?: string): void;
     throws(fn: () => unknown, expected?: RegExp | ((err: unknown) => boolean)): void;
+    rejects(fn: () => Promise<unknown>, expected?: RegExp | ((err: unknown) => boolean)): Promise<void>;
   };
   export default assert;
 }
@@ -78,6 +87,7 @@ declare module "node:sqlite" {
 }
 
 declare module "electron" {
+  export const safeStorage: any;
   export const app: any;
   export class BrowserWindow {
     constructor(options?: any);
@@ -96,22 +106,25 @@ declare module "electron" {
 }
 
 declare module "node:child_process" {
+  export function spawn(file: string, args: string[], options: any): any;
   export function execFile(
     file: string,
     args: string[],
-    options: { windowsHide?: boolean },
+    options: { windowsHide?: boolean; timeout?: number; maxBuffer?: number },
     callback: (error: Error | null, stdout: string, stderr: string) => void,
   ): void;
 }
 
 declare const Buffer: {
-  from(value: string | Uint8Array): Uint8Array & { length: number };
+  from(value: string | Uint8Array, encoding?: string): Uint8Array & { length: number };
   isBuffer(value: unknown): boolean;
   concat(values: readonly Uint8Array[]): Uint8Array & { toString(encoding?: string): string };
   byteLength(value: string): number;
 };
 
 declare module "node:crypto" {
+  export function createHash(algorithm: string): { update(data: string | Uint8Array): { digest(encoding: "hex"): string } };
+  export function randomUUID(): string;
   export function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean;
 }
 

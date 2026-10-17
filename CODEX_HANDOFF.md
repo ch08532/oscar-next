@@ -79,6 +79,71 @@ ResMed SD card / copied card folder
 
 ## Important source locations
 
+### OSCAR AI / OpenAI (2026-10-17)
+
+- `components/expert/ExpertMarkdown.tsx` renders cloud conversation answers with
+  react-markdown/remark-gfm, themed typography and scrollable tables. HTML is
+  skipped, external images are text-only, links are limited to HTTP(S)/anchors.
+  User messages remain plain text; local review/evidence cards are unchanged.
+  `npm --prefix apps/desktop run test:markdown` runs synthetic rendering/security
+  and partial-stream regression tests through Vite SSR.
+- Provider selection and configuration live only in **Settings → AI**, which
+  renders only the selected provider's form. The non-secret selection is saved
+  per desktop/browser client by `components/settings/useAIProvider.ts`, with
+  Local Ollama as the fallback. Settings tabs are
+  General, Therapy & graphs, AI and Connection; visited panels preserve drafts.
+  `components/settings/SettingsPage.tsx` owns the layout. Expert displays the active
+  provider and retains analysis plus a shortcut that opens the AI tab. Saved local settings
+  enable the local analysis controls; backend compatibility checks remain enforced.
+- Backend layout: provider adapters live in `src/ai/providers/<provider>/`;
+  configuration, shared cloud tools and private MCP transport have dedicated
+  `configuration/`, `tools/` and `mcp/` folders. `service.ts`, `contracts.ts` and
+  `analysis.ts` remain shared. See [AI backend layout](src/ai/README.md).
+- Groq is selectable in Settings → AI: `src/ai/providers/groq/provider.ts` implements bounded streaming
+  function-calling orchestration using `ScopedCloudTools`, shared with the private
+  OpenAI MCP adapter. Groq needs no tunnel and preserves provider history isolation.
+- `src/ai/configuration/secure-store.ts` shares the original OS-encrypted/memory-only secret
+  persistence; Groq uses a separate `<database>.groq.json` file. No clinical
+  schema migration. `GroqSettings.tsx` and both adapters expose safe config/checks.
+- Groq Refresh models uses the saved key against Groq's fixed Models endpoint;
+  model selection is independent of whether the old configured model is available.
+  Refresh/Test first save current form values. A failed save retains the entered
+  key; successful saves clear it and explicitly show configured state.
+- [GROQ.md](GROQ.md), `tests/groq.test.ts`: setup/privacy and mocked/synthetic
+  provider, tool-boundary, credential and API/SSE tests. Live Groq is unvalidated.
+
+- `src/ai/`: provider-neutral guided requests, OpenAI Responses streaming with
+  mandatory `store:false`, secure desktop settings, scoped private read-only MCP,
+  managed verified tunnel process and bounded ephemeral conversations.
+- `apps/desktop/src/Expert.tsx`, `ExpertAnalysis.tsx`, `LocalAISettings.tsx`,
+  `ExpertReview.tsx`, `AISettings.tsx`: one guided/chat screen using the
+  Local Ollama/OpenAI/Groq selection in Settings. Local is the default; provider history is isolated.
+- `src/ai/providers/ollama/provider.ts` bridges the existing validated Expert service, preserving
+  compatibility checks, evidence links and cancellation without a tunnel.
+- `tests/ai.test.ts`: mocked OpenAI/tunnel and synthetic MCP/API/SSE coverage.
+- [OSCAR-AI.md](OSCAR-AI.md), [plan](OSCAR-AI-PLAN.md),
+  [validation](OSCAR-AI-VALIDATION.md). Runtime binaries must be provisioned before
+  packaging; live account/tunnel/UI acceptance remains pending. Headless keys
+  are memory-only; desktop uses OS encryption. No clinical schema migration.
+
+### OSCAR Expert (2026-10-12)
+
+- `src/expert/`: strict shared schemas, typed read-only tools, descriptive findings,
+  loopback Ollama provider, controlled orchestrator, ephemeral scoped job service,
+  and separate SDK v2 stdio MCP adapter around the identical tool registry.
+- `apps/desktop/src/Expert.tsx`: shared opt-in night/trend/question UI, capability
+  checks, cancellation and evidence links through existing preload/REST adapters.
+- `tests/expert.test.ts`: synthetic domain/provider/REST tests and real SDK MCP
+  client parity/read-only coverage; real Ollama test is opt-in.
+- [LOCAL-AI.md](LOCAL-AI.md), [MCP.md](MCP.md),
+  [AI-EXPERT-PLAN.md](AI-EXPERT-PLAN.md),
+  [AI-EXPERT-VALIDATION.md](AI-EXPERT-VALIDATION.md).
+
+No new clinical algorithms, cloud fallback, raw waveform prompts, automatic model
+downloads or clinical-schema migration. Settings are `<database>.expert.json`;
+reviews stay in memory. Real-model validation remains pending. Future knowledge
+retrieval has an interface only; no reference citations exist yet.
+
 ### Core model
 
 - `src/core/machine.ts`

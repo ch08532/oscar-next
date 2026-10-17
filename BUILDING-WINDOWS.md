@@ -1,5 +1,14 @@
 # OSCAR Next 2.3 — Windows build, desktop, and headless guide
 
+## Optional OSCAR AI runtime
+
+Before packaging OpenAI support, provision the verified Windows tunnel-client and
+its hash/version manifest in `runtime/tunnel-client/`. Electron Builder places it
+outside ASAR under `resources/tunnel-client`. Source control contains only the
+provisioning README; cloud analysis reports unavailable until the runtime and
+account credentials exist. See [OSCAR-AI.md](OSCAR-AI.md). End users configure keys,
+model and tunnel through Settings; OSCAR starts/stops the child automatically.
+
 ## Requirements
 
 - Windows 10 or Windows 11 x64
@@ -37,6 +46,15 @@ For actual results and remaining manual checks on Windows, see
 [`WINDOWS-VALIDATION.md`](WINDOWS-VALIDATION.md).
 
 On first launch choose **Try demo data**. This generates a synthetic 14-night AirSense 11-style card and imports it through the same ResMed importer used for real media.
+
+## Optional local AI
+
+For optional OSCAR Expert local AI, run
+`powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\windows-local-ai.ps1`.
+This installs Ollama and downloads `qwen3.5:4b`, with cloud features disabled and
+a loopback-only server. See [LOCAL-AI.md](LOCAL-AI.md) for configuration and the
+required model compatibility check. The regular development bootstrap does not
+install AI software or models.
 
 ## Create the Windows installer
 
