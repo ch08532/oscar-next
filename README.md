@@ -749,7 +749,7 @@ with the date selection. The compact header wraps its controls at laptop widths.
 
 Open **Expert** under Analysis for night, trend/comparison and therapy-question
 reviews. Install Ollama and a compatible downloaded model on the backend's
-computer, disable Ollama cloud features, then enable local reviews and test the
+computer, disable Ollama cloud features, then select Local Ollama and test the
 model in **Settings → AI → Local Ollama settings**. Reviews are ephemeral, evidence-backed educational
 output; tools cannot change therapy or imported data. Desktop and browser use
 the same screen and scoped backend tools. No AI service or model is required for

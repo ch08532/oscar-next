@@ -846,3 +846,68 @@ Electron visual validation and packaging were not repeated for this adjustment.
 - PENDING: visual desktop/browser checks, both themes and narrow-screen table
   scrolling. All test text is synthetic; no real therapy payload was committed
   and no live AI or external image requests were made.
+
+### Automatically enable the selected AI provider — 2026-10-17
+
+- Windows NT 10.0.26200.0, Node v24.21.0, npm 11.19.0; existing dependencies
+  reused. Selected Settings forms enable their provider automatically, with
+  saved configuration/credentials preserved. Removed the three provider enable
+  checkboxes. Backend defaults, compatibility and explicit tunnel setup remain.
+- Baseline/final `npm run verify`: PASS, 242 passed, two optional skips, smoke
+  PASS. `npm --prefix apps/desktop run test:ui`: six PASS, including three new
+  activation regressions that failed before implementation. Renderer TypeScript,
+  desktop/headless builds and `git diff --check`: PASS. Existing annotation and
+  chunk-size advisories remain. Test WebSockets disabled after an observed port
+  conflict; final UI tests pass without that warning.
+- PENDING: interactive desktop/browser provider selection. Synthetic/mocked
+  settings only; no live provider request, real health-data export or schema
+  change was performed.
+
+### Groq 90-day trend failure diagnostics — 2026-10-17
+
+- Windows NT 10.0.26200.0, Node v24.21.0, npm 11.19.0; existing dependencies
+  reused. User reported a 90-day trend failure. Root integration defect: HTTP
+  413/422 and other statuses were labeled "service unavailable" without their
+  code. Actual original upstream status remains unknown; no live inference run.
+- Added distinct sanitized HTTP messages. Synthetic regression preserves a
+  full 90-day scope and rejects partial-history reuse after a later-round 503.
+  Both new regressions fail before and pass after the fix.
+- Baseline `npm run verify`: PASS, 242 passed/two skipped, smoke PASS. Final:
+  PASS, 244 passed/two skipped, smoke PASS. All 16 Groq tests and
+  `git diff --check`: PASS. Renderer/API schema unchanged. PENDING: user's real
+  model/account/range retry with the new status message. No real therapy upload
+  or credential access was performed.
+
+### Expert conversation alignment — 2026-10-17
+
+- Windows NT 10.0.26200.0, Node v24.21.0, npm 11.19.0; existing dependencies
+  reused. User questions now sit in right-aligned themed bubbles. Expert answers
+  remain left-aligned with full available width for Markdown tables and local
+  review/evidence cards. Long text wraps; small screens use wider question
+  bubbles. DOM conversation order and streaming logic are unchanged.
+- Baseline `npm run verify`: PASS, 244 passed, two optional skips, smoke PASS.
+  Post-change `npm --prefix apps/desktop run test:ui`: six PASS. Renderer
+  TypeScript and desktop/headless builds: PASS. Existing Zod annotation/chunk
+  advisories remain. `git diff --check`: PASS.
+- PENDING: interactive visual acceptance in desktop/browser, both themes and
+  narrow layouts. No live AI requests or therapy payloads were used.
+
+### Fixed Expert panels and keyboard composer — 2026-10-17
+
+- Windows NT 10.0.26200.0, Node v24.21.0, npm 11.19.0; existing dependencies
+  reused. Criteria/provider summary remain at the top, the conversation scrolls
+  independently, and message input/conversation actions remain at the bottom.
+  Enter sends, Shift+Enter inserts a newline, IME/repeated keypresses are guarded.
+- Baseline/post-composer `npm run verify`: PASS, 244 passed/two optional skips,
+  smoke PASS. `npm --prefix apps/desktop run test:ui`: ten PASS. Renderer
+  TypeScript and final desktop/headless builds: PASS. Existing Zod/chunk-size
+  advisories remain. `git diff --check`: PASS.
+- `node .validation/expert-layout-check.mjs`: PASS for synthetic Chrome fixtures
+  at requested 1440×900 Daily/Compare dark, 800×700 Daily light, 390×844 Compare
+  dark. Effective content heights: 748/548/692 px. Conversation scrolls without
+  moving criteria/composer; composer remains visible. Browser checks found and
+  verified fixes for inherited cross-axis alignment and narrow conversation space.
+- Initial Chrome probe failed with sandbox/GPU access restrictions. Offline
+  synthetic fixtures succeeded with test-only no-sandbox flags; no Electron
+  renderer security settings were changed. Preview screenshot inspected.
+  PENDING: manual running-app interaction. No paid AI calls or real therapy data.

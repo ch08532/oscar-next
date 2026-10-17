@@ -6,6 +6,17 @@ by default. Choose the provider explicitly in **Settings → AI**. Switching pro
 a fresh conversation; the backend rejects attempts to reuse another provider's
 conversation ID. All providers use read-only OSCAR tools and cannot change CPAP settings.
 
+Conversation questions appear in right-aligned bubbles, with Expert answers
+left-aligned below them. This shared layout supports desktop and browser,
+streaming answers and structured local review/evidence cards.
+The provider summary and analysis criteria stay at the top of the Expert
+workspace. Only the conversation pane scrolls through messages. The message box
+and New Conversation, Clear Conversation and Clear All AI History actions stay
+at the bottom, outside that scrolling pane. On compact windows, long criteria
+can scroll within their fixed panel so all controls remain accessible.
+**Enter** sends; **Shift+Enter**
+adds a new line. Confirming composed input does not send the message.
+
 Groq and OpenAI conversation answers render Markdown headings, emphasis, lists,
 code and tables. Wide tables scroll horizontally within the answer. Partial
 streamed Markdown is displayed as it arrives. User messages remain plain text,
@@ -22,6 +33,10 @@ UI, explicit date ranges, isolated local conversation context and cancellation.
 Provider selection and configuration are centralized in **Settings → AI**, which
 shows only the selected provider's settings. The choice is saved automatically
 on this desktop/browser client; no credentials are stored with this preference.
+Selecting a provider enables it automatically when its settings load; there is
+no separate provider enable checkbox. Existing model, key and connection values
+are preserved. Selecting a provider does not start inference or waive connection
+or compatibility requirements.
 Expert uses that choice and displays the active provider with a **Configure AI
 in Settings** shortcut.
 Settings also groups appearance under **General**, device analysis and graph
@@ -29,7 +44,7 @@ preferences under **Therapy & graphs**, and deployment information under
 **Connection**. Unsaved form values are preserved while switching Settings tabs.
 
 Local Ollama uses the existing Expert settings, compatibility checks and validated
-review pipeline. Open **Settings → AI → Local Ollama settings**, enable reviews, choose a model and
+review pipeline. Open **Settings → AI**, select **Local Ollama**, choose a model and
 test compatibility. No OpenAI credentials or tunnel are needed. The same guided
 requests resolve to the existing night, trend, comparison and question reviews.
 Results appear after structured output, evidence and treatment-boundary validation,
@@ -40,7 +55,7 @@ See [local setup](LOCAL-AI.md). There is no automatic cloud fallback.
 ## OpenAI setup in Settings → AI
 
 1. Open **Settings → AI**, select **OpenAI**,
-   enable OpenAI analysis and enter an OpenAI model ID. The initial
+   and enter an OpenAI model ID. Selecting it enables OpenAI analysis. The initial
    editable value is `gpt-4.1`; availability and tool support depend on your account.
 2. Enter the **OpenAI API key** used for Responses API requests.
 3. Create a Secure MCP Tunnel once in OpenAI Platform. Associate it with the

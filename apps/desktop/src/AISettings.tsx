@@ -1,20 +1,20 @@
 import { useEffect, useState } from "react";
 import { Card } from "./ui";
 import type { AIDiagnostics, AISettingsView, AISettingsUpdate } from "../../../src/ai/contracts.js";
+import { activateProvider } from "./components/settings/activate-provider";
 
 export function AISettings({scope}:{scope?:{profileId:number;machineId:number}}){
   const [settings,setSettings]=useState<AISettingsView>();
   const [apiKey,setApiKey]=useState("");const [runtimeKey,setRuntimeKey]=useState("");
   const [removeApi,setRemoveApi]=useState(false);const [removeRuntime,setRemoveRuntime]=useState(false);
   const [diagnostics,setDiagnostics]=useState<AIDiagnostics>();const [message,setMessage]=useState("");const [busy,setBusy]=useState(false);
-  useEffect(()=>{void window.oscar.getAISettings().then(setSettings).catch(()=>setMessage("Open or create an OSCAR database to configure AI."));},[]);
+  useEffect(()=>{let live=true;void activateProvider("openai",window.oscar).then(value=>{if(live)setSettings(value);}).catch(error=>{if(live)setMessage(error instanceof Error?error.message:"Could not enable OpenAI");});return()=>{live=false;};},[]);
   useEffect(()=>{let cancelled=false;let timer:ReturnType<typeof setTimeout>;const refresh=async()=>{try{const status=await window.oscar.getAIStatus();if(!cancelled)setDiagnostics(status);}catch{/* Setup may not yet have a database. */}if(!cancelled)timer=setTimeout(()=>void refresh(),2000);};void refresh();return()=>{cancelled=true;clearTimeout(timer);};},[]);
   async function action(run:()=>Promise<void>){setBusy(true);setMessage("");try{await run();}catch(error){setMessage(error instanceof Error?error.message:"AI settings operation failed");}finally{setBusy(false);}}
   async function test(component:"all"|"openai"|"mcp"|"tunnel"){const result=await window.oscar.testAI(component);setDiagnostics(result);setMessage(result.message);}
-  async function save(){if(!settings)return;const update:AISettingsUpdate={enabled:settings.enabled,provider:"openai",model:settings.model,tunnelEnabled:settings.tunnelEnabled,tunnelId:settings.tunnelId,...(removeApi?{apiKey:null}:apiKey?{apiKey}:{}),...(removeRuntime?{runtimeKey:null}:runtimeKey?{runtimeKey}:{})};try{setSettings(await window.oscar.configureAI(update));setRemoveApi(false);setRemoveRuntime(false);setDiagnostics(undefined);setMessage("Settings saved. OSCAR manages tunnel startup automatically.");}finally{setApiKey("");setRuntimeKey("");}}
+  async function save(){if(!settings)return;const update:AISettingsUpdate={enabled:true,provider:"openai",model:settings.model,tunnelEnabled:settings.tunnelEnabled,tunnelId:settings.tunnelId,...(removeApi?{apiKey:null}:apiKey?{apiKey}:{}),...(removeRuntime?{runtimeKey:null}:runtimeKey?{runtimeKey}:{})};try{setSettings(await window.oscar.configureAI(update));setRemoveApi(false);setRemoveRuntime(false);setDiagnostics(undefined);setMessage("Settings saved. OSCAR manages tunnel startup automatically.");}finally{setApiKey("");setRuntimeKey("");}}
   return <Card className="p-5 sm:p-7"><h3 className="text-lg font-semibold">OpenAI settings</h3><p className="my-3 text-sm text-[var(--muted)]">Configure the OpenAI provider for Expert. Required selected OSCAR measurements are processed in the cloud. Choose Local Ollama in the provider selector above for local processing.</p>
     {settings&&<fieldset disabled={busy} className="space-y-4">
-      <label className="flex gap-2"><input type="checkbox" checked={settings.enabled} onChange={e=>setSettings({...settings,enabled:e.target.checked})}/>Enable OpenAI analysis</label>
       <label className="block">Model<input className="mt-1 block" value={settings.model} onChange={e=>setSettings({...settings,model:e.target.value})} placeholder="OpenAI model ID"/></label>
       <label className="block">OpenAI API Key · {settings.apiKeyConfigured?"Configured":"Not configured"}<input className="mt-1 block w-full" type="password" autoComplete="off" value={apiKey} onChange={e=>setApiKey(e.target.value)} placeholder="Enter to replace; existing key is never returned"/></label>
       <label className="flex gap-2 text-sm"><input type="checkbox" checked={removeApi} onChange={e=>setRemoveApi(e.target.checked)}/>Remove saved OpenAI key on Save</label>

@@ -48,7 +48,8 @@ also requires tool calling and structured JSON.
 
 In OSCAR, open **Settings → AI** and select **Local Ollama**:
 
-1. Enable local reviews and set **Ollama URL** to `http://127.0.0.1:11434`.
+1. Selecting Local Ollama enables local reviews automatically. Set **Ollama URL**
+   to `http://127.0.0.1:11434`.
 2. Click **Refresh models** and select `qwen3.5:4b`.
 3. Start with **Context size: 8192** and click **Save settings**. This is a
    starting value, not a guarantee that long trend ranges fit. Reduce it to 4096
@@ -100,7 +101,7 @@ Settings if no longer needed.
    run `ollama pull <model-name>` yourself. OSCAR never installs Ollama, pulls
    models, or falls back to a cloud model automatically. No particular model is
    required or certified by this implementation.
-4. Open **Settings → AI**, select **Local Ollama**, enable local reviews,
+4. Open **Settings → AI** and select **Local Ollama** to enable local reviews,
    keep `http://127.0.0.1:11434` unless using another loopback port, and click
    **Refresh models**. Select an installed model and optional context size.
 5. Click **Test compatibility**. Synthetic probes check reachability, downloaded
@@ -141,7 +142,8 @@ registry and explains the separate externally managed MCP process.
 
 ## Privacy and persistence
 
-Expert is disabled by default. The internal path is React → preload or REST →
+Selecting Local Ollama in Settings → AI enables local reviews automatically.
+Backend clients retain the explicit enabled setting. The internal path is React → preload or REST →
 ExpertTools/orchestrator → loopback Ollama. There are no Internet/search tools,
 cloud fallback, remote embeddings or therapy uploads. Model context excludes
 profile names, machine serials, database/card paths, notes and raw waveform

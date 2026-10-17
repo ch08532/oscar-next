@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Card } from "./ui";
 import { ExpertReview } from "./ExpertReview";
 import { ExpertMarkdown } from "./components/expert/ExpertMarkdown";
+import { ExpertComposer } from "./components/expert/ExpertComposer";
 import type { EvidenceReference, ReviewResult } from "../../../src/expert/schemas.js";
 import { dailyIntents, trendIntents, compareIntents, type AIRequest, type AIJob, type AIProviderId } from "../../../src/ai/contracts.js";
 import { lastNight, presetRange, comparisonPreset, shiftDate } from "../../../src/ai/analysis.js";
@@ -30,9 +31,9 @@ export function ExpertAnalysis({profileId,machineId,date,provider,ready=true,onB
   function guided(intent:string){const context={...scope,...(conversationId?{conversationId}:{})};const request=mode==="Daily"?{...context,type:"analysis",dateMode:"single",date:selectedDate,intent}:mode==="Trend"?{...context,type:"analysis",dateMode:"range",...range,intent}:{...context,type:"analysis",dateMode:"compare",...periods,intent};const dates=mode==="Daily"?selectedDate:mode==="Trend"?`${range.startDate} – ${range.endDate}`:`${periods.periodA.startDate} – ${periods.periodA.endDate} vs ${periods.periodB.startDate} – ${periods.periodB.endDate}`;void start(request as AIRequest,`${title(intent)} · ${dates}`);}
   async function clear(all=false){try{await window.oscar.clearAIHistory(scope,all?undefined:conversationId);setConversationId(undefined);setEntries([]);setJob(undefined);active.current=undefined;setError("");setStatus("");}catch{setError("Could not clear AI history");}}
   const dateInput=(label:string,value:string,change:(v:string)=>void)=><label className="text-sm">{label}<input className="ml-2" type="date" value={value} onChange={e=>change(e.target.value)}/></label>;
-  return <div className="space-y-5">
-    <Card className="p-5 sm:p-7"><div className="flex flex-wrap gap-2" role="group" aria-label="Analysis mode">{(["Daily","Trend","Compare","Ask Anything"] as Mode[]).map(value=><button className={mode===value?"":"secondary"} key={value} aria-pressed={mode===value} disabled={busy} onClick={()=>setMode(value)}>{value}</button>)}</div>
-      <fieldset className="mt-5 space-y-4" disabled={busy||starting||!ready}>
+  return <div className="expert-analysis">
+    <Card className="expert-criteria p-3 sm:p-4" role="region" aria-label="AI analysis criteria" tabIndex={0}><div className="flex flex-wrap gap-2" role="group" aria-label="Analysis mode">{(["Daily","Trend","Compare","Ask Anything"] as Mode[]).map(value=><button className={mode===value?"":"secondary"} key={value} aria-pressed={mode===value} disabled={busy} onClick={()=>setMode(value)}>{value}</button>)}</div>
+      <fieldset className="mt-3 space-y-3" disabled={busy||starting||!ready}>
       {mode==="Daily"&&<><div className="flex flex-wrap gap-3 items-center">{dateInput("Date",selectedDate,setSelectedDate)}<button className="secondary" onClick={()=>setSelectedDate(lastNight())}>Last Night</button></div><p className="text-sm text-[var(--muted)]">{hasData===false?"No included session on this date. Select another therapy date.":hasData?"Included OSCAR therapy data available.":"Checking data availability…"}</p></>}
       {mode==="Trend"&&<><label>Period<select className="ml-2" value={days} onChange={e=>{setDays(e.target.value);if(e.target.value!=="custom")setRange(presetRange(lastNight(),Number(e.target.value)));}}>{[7,14,30,90].map(n=><option key={n} value={n}>Last {n} days</option>)}<option value="custom">Custom Range</option></select></label><div className="flex flex-wrap gap-4">{dateInput("From",range.startDate,value=>{setDays("custom");setRange({...range,startDate:value});})}{dateInput("To",range.endDate,value=>{setDays("custom");setRange({...range,endDate:value});})}</div></>}
       {mode==="Compare"&&<><div className="flex flex-wrap gap-2">{[7,30].map(n=><button key={n} className="secondary" onClick={()=>setPeriods(comparisonPreset(lastNight(),n))}>Last {n} days vs Previous {n} days</button>)}<button className="secondary" onClick={()=>{const today=shiftDate(lastNight(),1),first=today.slice(0,7)+"-01",previousLast=shiftDate(first,-1);setPeriods({periodA:{startDate:previousLast.slice(0,7)+"-01",endDate:previousLast},periodB:{startDate:first,endDate:today}});}}>This month vs Last month</button></div>{(["periodA","periodB"] as const).map((key,index)=><div className="flex flex-wrap items-center gap-4" key={key}><strong>Period {index===0?"A":"B"}</strong>{dateInput("From",periods[key].startDate,value=>setPeriods({...periods,[key]:{...periods[key],startDate:value}}))}{dateInput("To",periods[key].endDate,value=>setPeriods({...periods,[key]:{...periods[key],endDate:value}}))}</div>)}</>}
@@ -40,10 +41,24 @@ export function ExpertAnalysis({profileId,machineId,date,provider,ready=true,onB
       {mode==="Ask Anything"&&!conversationId&&<div>{dateInput("Question range from",range.startDate,value=>setRange({...range,startDate:value}))} {dateInput("to",range.endDate,value=>setRange({...range,endDate:value}))}</div>}
       </fieldset>
     </Card>
-    <Card className="p-5 sm:p-7"><div className="mb-5 flex flex-wrap gap-2"><button className="secondary" disabled={busy} onClick={()=>{setConversationId(undefined);setEntries([]);setError("");setStatus("");}}>New Conversation</button><button className="secondary" disabled={!conversationId} onClick={()=>void clear()}>Clear Conversation</button><button className="secondary" onClick={()=>void clear(true)}>Clear All AI History</button></div>
-      <div className="space-y-5" role="log" aria-label="Expert conversation">{entries.map((entry,index)=><div key={index}><p className="mb-1 font-semibold">{entry.role}</p>{entry.review?<ExpertReview result={entry.review} onEvidence={onEvidence}/>:entry.role==="Expert"?<ExpertMarkdown text={entry.text}/>:<p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{entry.text}</p>}</div>)}</div>
+    <Card className="expert-conversation p-3 sm:p-4">
+      <div className="expert-conversation-scroll space-y-5" role="log" aria-label="Expert conversation" tabIndex={0}>
+        {!entries.length&&<p className="text-sm text-[var(--muted)]">Choose an analysis above or ask a question below to start a conversation.</p>}
+        {entries.map((entry,index)=>
+        <div key={index} className={`expert-message ${entry.role==="You"?"expert-message-user":"expert-message-assistant"}`}>
+          <div className="expert-message-body">
+            <p className="expert-message-author">{entry.role}</p>
+            {entry.review?<ExpertReview result={entry.review} onEvidence={onEvidence}/>:entry.role==="Expert"?<ExpertMarkdown text={entry.text}/>:<p className="m-0 whitespace-pre-wrap break-words text-sm leading-relaxed">{entry.text}</p>}
+          </div>
+        </div>
+      )}</div>
       <p role="status" className="my-4 text-sm text-[var(--muted)]">{status}</p>{error&&<p role="alert" className="my-3 text-sm text-red-400">{error}</p>}
-      <form className="mt-4 flex flex-wrap gap-3" onSubmit={event=>{event.preventDefault();const text=message.trim();if(!text)return;setMessage("");void start({...scope,type:"chat",dateMode:"chat",message:text,...(conversationId?{conversationId}:{range})},text);}}><label className="grow"><span className="sr-only">Ask anything or a follow-up</span><textarea className="w-full" maxLength={provider==="ollama"?2000:4000} disabled={busy||starting||!ready} value={message} onChange={e=>setMessage(e.target.value)} placeholder={conversationId?"Ask a follow-up about this analysis…":"Ask anything about your selected OSCAR dates…"}/></label><button disabled={busy||starting||!ready||!message.trim()}>Send</button>{busy&&<button className="secondary" type="button" onClick={()=>{if(active.current)void window.oscar.cancelAI(active.current.id,scope).catch(()=>setError("Could not cancel; check the backend connection"));}}>Stop</button>}</form>
+      <ExpertComposer message={message} onMessageChange={setMessage} maxLength={provider==="ollama"?2000:4000}
+        conversationActive={!!conversationId} busy={busy} starting={starting} ready={ready}
+        onSend={text=>{if(submitting.current||busy||starting||!ready)return;setMessage("");void start({...scope,type:"chat",dateMode:"chat",message:text,...(conversationId?{conversationId}:{range})},text);}}
+        onStop={()=>{if(active.current)void window.oscar.cancelAI(active.current.id,scope).catch(()=>setError("Could not cancel; check the backend connection"));}}
+        onNewConversation={()=>{setConversationId(undefined);setEntries([]);setError("");setStatus("");}}
+        onClearConversation={()=>void clear()} onClearHistory={()=>void clear(true)} />
       <p className="mt-3 text-xs text-[var(--muted)]">Educational analysis, not a diagnosis. Cannot modify OSCAR data or CPAP settings. History is temporary and kept locally by the backend.</p>
     </Card>
   </div>;

@@ -81,6 +81,23 @@ ResMed SD card / copied card folder
 
 ### OSCAR AI / OpenAI (2026-10-17)
 
+- `components/expert/ExpertComposer.tsx` owns the bottom message form and
+  conversation actions. Expert has a bounded viewport layout: provider/criteria
+  at the top, an independently scrolling conversation, and the composer below
+  the scroll region. Compact criteria panels can scroll internally.
+  Enter requests normal form submission, Shift+Enter inserts a newline and IME
+  composition/repeated Enter are guarded. Parent submission retains its duplicate
+  request guard. UI tests cover keyboard and moved action callbacks.
+- Groq HTTP errors include numeric statuses and separate oversized requests,
+  processing errors, capacity/rate limits and server/gateway failures. Vendor
+  bodies remain discarded. A synthetic 90-day trend regression checks exact
+  scope and partial-history exclusion after a later-round upstream failure.
+- Selected provider forms use `components/settings/activate-provider.ts` to
+  enable that provider on load, preserving saved settings/credentials. UI
+  provider enable checkboxes are removed; all UI saves retain enabled=true.
+  Existing enabled configurations are not rewritten, and concurrent StrictMode
+  mounts share pending activation. Backend API flags/defaults remain compatible.
+  `npm --prefix apps/desktop run test:ui` covers activation and Markdown rendering.
 - `components/expert/ExpertMarkdown.tsx` renders cloud conversation answers with
   react-markdown/remark-gfm, themed typography and scrollable tables. HTML is
   skipped, external images are text-only, links are limited to HTTP(S)/anchors.

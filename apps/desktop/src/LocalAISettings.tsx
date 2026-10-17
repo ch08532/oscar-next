@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Card } from "./ui";
 import type { Compatibility, ExpertSettings } from "../../../src/expert/schemas.js";
+import { activateProvider } from "./components/settings/activate-provider";
 
 export function LocalAISettings({deployment,disabled=false}:{deployment:"desktop"|"browser";disabled?:boolean}){
   const [settings,setSettings]=useState<ExpertSettings>();
@@ -9,18 +10,18 @@ export function LocalAISettings({deployment,disabled=false}:{deployment:"desktop
   const [busy,setBusy]=useState(false),[error,setError]=useState("");
   const [diagnostics,setDiagnostics]=useState<Awaited<ReturnType<typeof window.oscar.getExpertDiagnostics>>>();
   const live=useRef(true);
-  useEffect(()=>{live.current=true;void window.oscar.getExpertSettings().then(value=>{if(live.current)setSettings(value);}).catch(()=>{if(live.current)setError("Could not load local Expert settings");});return()=>{live.current=false;};},[]);
+  useEffect(()=>{live.current=true;void activateProvider("ollama",window.oscar).then(value=>{if(live.current)setSettings(value);}).catch(error=>{if(live.current)setError(error instanceof Error?error.message:"Could not enable Local Ollama");});return()=>{live.current=false;};},[]);
   function change(next:ExpertSettings){setSettings(next);setCompatibility(undefined);}
   async function configure(action:"save"|"models"|"test"){
     if(!settings||busy||disabled)return;setBusy(true);setError("");setCompatibility(undefined);
-    try{await window.oscar.configureExpert(settings);if(action==="models"){const next=await window.oscar.listExpertModels();if(live.current)setModels(next);}if(action==="test"){const next=await window.oscar.testExpertModel();if(live.current)setCompatibility(next);}}
+    try{await window.oscar.configureExpert({...settings,enabled:true});if(action==="models"){const next=await window.oscar.listExpertModels();if(live.current)setModels(next);}if(action==="test"){const next=await window.oscar.testExpertModel();if(live.current)setCompatibility(next);}}
     catch(cause){if(live.current)setError(cause instanceof Error?cause.message:"Local AI operation failed");}
     finally{if(live.current)setBusy(false);}
   }
   return <Card className="p-5 sm:p-7"><h3 className="text-lg font-semibold">Local Ollama settings</h3>
     <p className="my-3 text-sm text-[var(--muted)]">{deployment==="browser"?"Ollama runs on the headless server’s computer.":"Ollama runs on this computer."} Use downloaded models with Ollama cloud features disabled. Nothing is downloaded automatically.</p>
     <fieldset disabled={busy||disabled}>
-      {settings&&<div className="space-y-4"><label className="flex gap-2"><input type="checkbox" checked={settings.enabled} onChange={event=>change({...settings,enabled:event.target.checked})}/>Enable local reviews</label>
+      {settings&&<div className="space-y-4">
         <label className="block">Ollama URL<input className="mt-1 block w-full" value={settings.endpoint} onChange={event=>change({...settings,endpoint:event.target.value})}/></label>
         <label className="block">Installed local model<select className="mt-1 block w-full" value={settings.model} onChange={event=>change({...settings,model:event.target.value})}><option value="">Choose a model</option>{settings.model&&!models.some(model=>model.name===settings.model)&&<option value={settings.model}>{settings.model}</option>}{models.map(model=><option key={model.name}>{model.name}</option>)}</select></label>
         <label className="block">Context size<select className="mt-1 block w-full" value={settings.contextSize??"auto"} onChange={event=>change({...settings,contextSize:event.target.value==="auto"?null:Number(event.target.value)})}><option value="auto">Model default</option>{[2048,4096,8192,16384,32768].map(value=><option key={value}>{value}</option>)}</select></label>

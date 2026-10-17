@@ -1,19 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { Card } from "./ui";
 import type { GroqSettingsView, GroqSettingsUpdate } from "../../../src/ai/contracts.js";
+import { activateProvider } from "./components/settings/activate-provider";
 
 export function GroqSettings({disabled=false}:{disabled?:boolean}){
   const [settings,setSettings]=useState<GroqSettingsView>(),[apiKey,setApiKey]=useState("");
   const [removeKey,setRemoveKey]=useState(false),[message,setMessage]=useState(""),[failed,setFailed]=useState(false);
   const [models,setModels]=useState<string[]>(),[operation,setOperation]=useState<"save"|"models"|"test">();
   const running=useRef(false),busy=operation!==undefined;
-  useEffect(()=>{let live=true;void window.oscar.getGroqSettings().then(value=>{if(live)setSettings(value);}).catch(()=>{if(live)setMessage("Open or create an OSCAR database to configure Groq.");});return()=>{live=false;};},[]);
+  useEffect(()=>{let live=true;void activateProvider("groq",window.oscar).then(value=>{if(live)setSettings(value);}).catch(error=>{if(live){setFailed(true);setMessage(error instanceof Error?error.message:"Could not enable Groq");}});return()=>{live=false;};},[]);
   async function action(kind:"save"|"models"|"test"){
     if(!settings||disabled||running.current)return;
     running.current=true;setOperation(kind);setFailed(false);setMessage("Saving Groq settings…");
     let saved=false;
     try{
-      const update:GroqSettingsUpdate={enabled:settings.enabled,provider:"groq",model:settings.model,...(removeKey?{apiKey:null}:apiKey?{apiKey}:{})};
+      const update:GroqSettingsUpdate={enabled:true,provider:"groq",model:settings.model,...(removeKey?{apiKey:null}:apiKey?{apiKey}:{})};
       const next=await window.oscar.configureGroq(update);
       saved=true;setSettings(next);setRemoveKey(false);setApiKey("");
       if(kind==="save"){setMessage(next.apiKeyConfigured?"Groq settings saved. API key is configured; the password field is cleared after saving.":"Groq settings saved. No API key is configured.");return;}
@@ -32,7 +33,6 @@ export function GroqSettings({disabled=false}:{disabled?:boolean}){
   return <Card className="p-5 sm:p-7"><h3 className="text-lg font-semibold">Groq settings</h3>
     <p className="my-3 text-sm text-[var(--muted)]">Groq processes selected OSCAR measurements in the cloud. OSCAR validates and executes the read-only tools on the backend; your MCP server stays private.</p>
     {settings&&<fieldset disabled={busy||disabled} className="space-y-4">
-      <label className="flex gap-2"><input type="checkbox" checked={settings.enabled} onChange={event=>setSettings({...settings,enabled:event.target.checked})}/>Enable Groq analysis</label>
       <label className="block">Model{models?.length?<select className="mt-1 block w-full" value={settings.model} onChange={event=>setSettings({...settings,model:event.target.value})}>
         {!models.includes(settings.model)&&<option value={settings.model}>{settings.model} (not in returned model list)</option>}
         {models.map(model=><option key={model} value={model}>{model}</option>)}

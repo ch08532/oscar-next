@@ -60,6 +60,32 @@ test("Groq rejects truncated/error/oversized streams and never returns provider 
   for(const status of [400,401,403,404,429,500])await assert.rejects(()=>new GroqProvider({apiKey:key,model:settings.model,databasePath:path},async()=>new Response(key,{status})).ask(input()),/Groq/);
 }));
 
+test("Groq distinguishes request size, processing, rate and server failures without exposing response bodies",async()=>{
+  for(const [status,expected]of [[413,/too large/i],[422,/process/i],[424,/dependency/i],[429,/rate|usage/i],[498,/capacity/i],[500,/server/i],[502,/upstream/i],[503,/unavailable/i],[504,/timed out/i],[418,/request failed/i]] as const){
+    let calls=0;
+    const provider=new GroqProvider({apiKey:key,model:settings.model,databasePath:"unused"},async()=>{calls++;return new Response(`${key} private therapy payload`,{status});});
+    await assert.rejects(()=>provider.testConnection(new AbortController().signal),error=>error instanceof Error&&error.message.includes(`HTTP ${status}`)&&expected.test(error.message)&&!error.message.includes(key)&&!error.message.includes("private therapy payload"));
+    assert.equal(calls,1);
+  }
+});
+
+test("Groq preserves a 90-day trend scope and keeps partial failed answers out of follow-up history",async()=>fixture(async path=>{
+  const period={startDate:"2026-07-19",endDate:date},store=new GroqSettingsStore(`${path}.groq.json`);
+  await store.configure({...settings,apiKey:key});const bodies:any[]=[];let calls=0;
+  const service=new AIService(path,new AISettingsStore(`${path}.ai.json`),undefined,undefined,undefined,store,config=>new GroqProvider(config,async(_url,init)=>{
+    bodies.push(JSON.parse(String(init?.body)));calls++;
+    if(calls===1)return stream([chunk({content:"INCOMPLETE-TREND"}),chunk({tool_calls:[{index:0,id:"detail",type:"function",function:{name:"oscar_get_night_summary",arguments:JSON.stringify({date})}}]}),chunk({},"tool_calls")]);
+    if(calls===2)return new Response(key,{status:503});return final("Completed synthetic trend");
+  }));
+  try{
+    const first=await service.start({...scope,provider:"groq",type:"analysis",dateMode:"range",intent:"ahi_trend",...period});await wait();
+    const failed=service.job(first.id,scope);assert.equal(failed.state,"failed");assert.ok(failed.events.some(event=>event.type==="error"&&/HTTP 503/.test(event.text)));assert.equal(failed.events.some(event=>event.type==="complete"),false);
+    const seed=JSON.parse(bodies[0].messages.at(-1).content);assert.deepEqual(seed.authorizedPeriods,[period]);assert.equal(seed.oscarMeasurements.data.totalDays,90);
+    const next=await service.start({...scope,provider:"groq",type:"chat",dateMode:"chat",message:"Retry the selected trend",conversationId:first.conversationId});await wait();
+    assert.equal(service.job(next.id,scope).state,"complete");assert.equal(JSON.stringify(bodies[2]).includes("INCOMPLETE-TREND"),false);assert.deepEqual(JSON.parse(bodies[2].messages.at(-1).content).authorizedPeriods,[period]);
+  }finally{await service.close();}
+}));
+
 test("Groq streaming preserves split UTF-8/CRLF and aborts the upstream request on cancellation",async()=>fixture(async path=>{
   const bytes=new TextEncoder().encode(`data: ${JSON.stringify(chunk({content:"é"}))}\r\n\r\ndata: ${JSON.stringify(chunk({},"stop"))}\r\n\r\ndata: [DONE]\r\n\r\n`);let offset=0;
   const split=new GroqProvider({apiKey:key,model:settings.model,databasePath:path},async()=>new Response(new ReadableStream({pull(controller){if(offset<bytes.length)controller.enqueue(bytes.slice(offset,++offset));else controller.close();}})));assert.equal(await split.ask(input()),"é");

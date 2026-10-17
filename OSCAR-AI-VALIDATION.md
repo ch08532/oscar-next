@@ -244,3 +244,84 @@ no unrelated upgrade was attempted. Existing Zod annotation/chunk-size advisorie
 remain. The test Vite server disables dependency scanning to close cleanly.
 Visual desktop/browser and narrow-screen acceptance remain pending; no live AI
 requests or real health-data exports were made.
+
+## Automatic provider enablement in Settings — 2026-10-17
+
+Removed the Local Ollama, OpenAI and Groq provider enable checkboxes. When the
+selected provider's settings load, a shared activation helper enables that
+provider using its existing settings. Model/endpoint/tunnel settings and omitted
+credentials are preserved. Already-enabled configurations are not rewritten, so
+reopening them does not reset local compatibility. Pending activations are shared
+across duplicate StrictMode mounts; failures are reported and retryable. UI
+saves retain enabled=true. Existing backend flags/defaults, model validation,
+secret storage and explicit OpenAI tunnel configuration are unchanged.
+
+Existing dependencies reused. Baseline/final `npm run verify`: PASS, 242 passed,
+two optional skips, demo smoke PASS. `npm --prefix apps/desktop run test:ui`:
+six PASS (three activation and three Markdown checks). Activation tests failed
+before implementation and verify selected-provider-only writes, preservation of
+saved fields, omission of secret/configured flags, no rewrites, shared activation
+and failure recovery. Test servers disable HMR/WebSockets to avoid port conflicts.
+Renderer TypeScript, desktop/headless builds and `git diff --check`: PASS.
+Existing renderer annotation/chunk advisories remain. Manual desktop/browser
+selection acceptance remains pending; no real therapy data or live AI request
+was used, and selection does not perform inference.
+
+## Groq 90-day trend error classification — 2026-10-17
+
+User reported a 90-day Trend failure with "Groq service is unavailable". The
+integration mapped all unrecognized failure statuses, including HTTP 413 and
+422, to that same outage message and discarded the numeric status. The actual
+original upstream status cannot be recovered from that message; an oversized
+request is plausible but not confirmed. No live reproduction was attempted.
+
+Errors now include the HTTP status and distinct actions for request size,
+processing, credentials, model access, dependencies, capacity/rate limits and
+server/gateway failures. Provider bodies are still discarded and never echoed.
+No automatic retries, range truncation, provider fallback or clinical query
+changes were added. A synthetic 90-day trend test checks exact authorized dates,
+90 calendar days, a later-round HTTP 503 after partial text, failure state,
+exclusion of the incomplete turn from follow-up context and unchanged scope.
+
+Existing dependencies reused. Baseline `npm run verify`: PASS, 242 passed, two
+optional skips, smoke PASS. Both new regressions failed before the fix. Final
+`npm run verify`: PASS, 244 passed, two optional skips, smoke PASS. All 16 Groq
+tests and `git diff --check`: PASS. No renderer/API schema changed. The user's
+actual model/account limits and the underlying 90-day failure remain unverified;
+the next failure will identify its HTTP status. No keys, real therapy payloads
+or live paid inference were accessed.
+
+## Fixed Expert criteria, scrolling conversation and bottom composer — 2026-10-17
+
+Expert now occupies the available workspace viewport. The compact provider
+summary and analysis criteria sit above an independently scrolling conversation;
+the message box, New Conversation, Clear Conversation and Clear All AI History
+actions sit below it. Criteria can scroll within their fixed panel on compact
+screens. Questions retain right-aligned bubbles, answers retain Markdown and
+local evidence cards. Other application views retain their existing scrolling.
+
+ExpertComposer routes Enter through normal form submission. Shift+Enter inserts
+a newline; IME composition/confirmation, repeated key events and unavailable,
+blank, starting or busy input do not send. The parent retains its synchronous
+duplicate-submission guard. Moved conversation actions retain their existing
+callbacks; their buttons cannot submit the form. Clearing an active conversation
+still cancels its backend job.
+
+Existing dependencies reused. Baseline/post-composer `npm run verify`: PASS,
+244 passed, two optional skips, smoke PASS. Final UI tests: ten PASS, including
+four new composer keyboard/action tests. Renderer TypeScript, final desktop and
+headless builds and `git diff --check`: PASS. Existing Zod annotation/chunk-size
+advisories remain.
+
+One-off synthetic Chrome layout fixtures use actual Expert components and built
+CSS. Checks passed at requested window sizes 1440×900 (Daily/Compare, dark),
+800×700 (Daily, light) and 390×844 (Compare, dark): output scrolls, criteria and
+composer positions remain fixed, composer stays in the visible viewport and
+conversation space remains usable. Chrome's effective content viewports were
+748/548/692 px high. Initial checks exposed inherited align-items:start and
+insufficient small-screen conversation space; both were corrected. The browser
+probe initially failed under the agent sandbox GPU restrictions; isolated offline
+fixture runs used browser test-only no-sandbox flags. Application Electron
+sandbox settings were not changed. An ignored synthetic screenshot was inspected.
+Manual interaction in the running Electron application remains pending. No live
+AI calls, real therapy exports or clinical semantics changes were made.

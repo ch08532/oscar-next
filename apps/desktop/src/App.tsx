@@ -278,7 +278,7 @@ export function App({ deployment = "desktop" }: { deployment?: "desktop" | "brow
   const needsSetup = setup?.needsSetup === true;
   const showInspector = inspectorOpen && view === "daily" && daily !== undefined && daily.sessions.length > 0 && machineId !== undefined;
 
-  return <div className={`app-shell grid min-h-screen max-[1150px]:grid-cols-[72px_minmax(0,1fr)] ${sidebarCollapsed ? "sidebar-compact grid-cols-[72px_minmax(0,1fr)]" : "grid-cols-[228px_minmax(0,1fr)]"}`}>
+  return <div className={`app-shell grid ${view==="expert"?"expert-workspace h-dvh min-h-0 overflow-hidden":"min-h-screen"} max-[1150px]:grid-cols-[72px_minmax(0,1fr)] ${sidebarCollapsed ? "sidebar-compact grid-cols-[72px_minmax(0,1fr)]" : "grid-cols-[228px_minmax(0,1fr)]"}`}>
     <a href="#workspace" className="skip-link">Skip to workspace</a>
     <Sidebar view={view} onNavigate={setView} onImport={chooseImportSource} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} profile={activeProfile} version={appInfo?.version} />
     <div className="workspace-shell min-w-0">
@@ -297,7 +297,7 @@ export function App({ deployment = "desktop" }: { deployment?: "desktop" | "brow
         {(view === "overview" || view === "statistics") && <div ref={setHistoryToolbar} className="history-toolbar w-full min-w-0 border-t border-[var(--border)] px-5 pt-2 pb-3 max-[1150px]:px-3.5" />}
       </header>
       <div className={`workspace-body ${showInspector ? "with-inspector" : ""}`}>
-      <main id="workspace" className="workspace-content min-w-0 px-5 pt-[18px] pb-10 max-[1150px]:p-3.5" tabIndex={-1}>
+      <main id="workspace" className={`workspace-content min-w-0 px-5 pt-[18px] ${view==="expert"?"pb-3.5":"pb-10"} max-[1150px]:p-3.5`} tabIndex={-1}>
         {notice && <div className="notice" role="status">{notice}</div>}
         {error && <div className="error" role="alert">{error}</div>}
         {!database && !needsSetup && <section className="empty"><h2>Open your therapy workspace</h2><p>Open an existing OSCAR Next database or import a CPAP card.</p><div className="empty-actions"><button onClick={chooseImportSource}>Import Data</button><button className="secondary" onClick={openDatabase}>Open database</button></div></section>}

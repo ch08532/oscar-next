@@ -67,7 +67,7 @@ export function SettingsPage({ tab, onTabChange, machineId, profileId, deploymen
                 <option value="ollama">Local Ollama</option><option value="openai">OpenAI</option><option value="groq">Groq</option>
               </select>
             </label>
-            <p className="mt-3 text-sm text-[var(--muted)]">Expert uses this selection. It is saved automatically on this device. Configure the provider below, then open Expert to run an analysis.</p>
+            <p className="mt-3 text-sm text-[var(--muted)]">Selecting a provider enables it automatically. Expert uses this selection, saved on this device. Configure the provider below, then open Expert to run an analysis.</p>
             <p className="mt-2 text-sm text-[var(--muted)]">Local Ollama processes data on the backend computer; cloud providers receive the selected measurements. Changing providers starts a separate conversation.</p>
           </Card>
           {provider === "ollama" && <LocalAISettings deployment={deployment} />}

@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test:ui": "node --test tests/*.test.mjs",
     "test:markdown": "node --test tests/expert-markdown.test.mjs",
     "icons:generate": "electron scripts/generate-icons.cjs",
     "dev": "vite",

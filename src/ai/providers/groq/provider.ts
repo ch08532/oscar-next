@@ -9,6 +9,23 @@ interface ToolCall { id:string; type:"function"; function:{name:string;arguments
 interface Message { role:"system"|"user"|"assistant"|"tool"; content:string|null; tool_calls?:ToolCall[]; tool_call_id?:string; }
 export class GroqError extends Error {}
 
+const httpErrors:Record<number,string>={
+  400:"Groq rejected the model or tool configuration",
+  401:"Groq rejected the API key; replace it in Settings → AI",
+  403:"Groq denied access; check account and model permissions",
+  404:"Groq model is unavailable for this account. Refresh models in Settings → AI, select a supported chat model, then test again",
+  413:"Groq request is too large for the current limits; try a shorter trend range or start a new conversation",
+  422:"Groq could not process the request or generated tool call; retry or select another tool-capable model",
+  424:"Groq reported a failed service dependency; try again later",
+  429:"Groq rate or usage limit reached; wait before retrying or check account limits",
+  498:"Groq processing capacity is full; try again later",
+  499:"Groq reported that the request was cancelled",
+  500:"Groq reported an internal server error; try again later",
+  502:"Groq reported an upstream gateway error; try again later",
+  503:"Groq service is unavailable; try again later",
+  504:"Groq's gateway timed out; retry or try a shorter trend range",
+};
+
 export class GroqProvider implements AIProvider {
   constructor(private readonly config:{apiKey:string;model:string;databasePath:string}, private readonly fetcher:typeof fetch=fetch) {
     if(!config.apiKey||!config.model)throw new GroqError("Configure a Groq API key and model in Settings → AI");
@@ -18,7 +35,13 @@ export class GroqProvider implements AIProvider {
     let response:Response;
     try {response=await this.fetcher(`https://api.groq.com/openai/v1/${resource}`,{method:resource==="models"?"GET":"POST",redirect:"error",signal,headers:{authorization:`Bearer ${this.config.apiKey}`,"content-type":"application/json"},...(resource==="models"?{}:{body:JSON.stringify(body)})});}
     catch {throw new GroqError("Groq connection failed or was cancelled; check outbound HTTPS");}
-    if(!response.ok){await response.body?.cancel();throw new GroqError(response.status===401||response.status===403?"Groq credential or permission rejected":response.status===404?"Groq model is unavailable for this account. Refresh models in Settings → AI, select a supported chat model, then test again":response.status===429?"Groq rate or usage limit reached":response.status===400?"Groq rejected the model or tool configuration":"Groq service is unavailable; try again later");}
+    if(!response.ok){
+      // Preserve the safe HTTP status, never the vendor body (which may echo a
+      // prompt or credentials). Size/processing failures are not service outages.
+      await response.body?.cancel().catch(()=>{});
+      const message=response.status===404&&resource==="models"?"Groq model discovery is unavailable; try again later":httpErrors[response.status]??"Groq request failed";
+      throw new GroqError(`${message} (HTTP ${response.status})`);
+    }
     return response;
   }
   async listModels(signal:AbortSignal):Promise<string[]> {

@@ -8,7 +8,7 @@ import { createServer } from "vite";
 let server, ExpertMarkdown;
 before(async () => {
   server = await createServer({ configFile: false, root: fileURLToPath(new URL("..", import.meta.url)),
-    appType: "custom", server: { middlewareMode: true }, esbuild: { jsx: "automatic" },
+    appType: "custom", server: { middlewareMode: true, hmr: false, ws: false }, esbuild: { jsx: "automatic" },
     optimizeDeps: { noDiscovery: true, include: [] } });
   ({ ExpertMarkdown } = await server.ssrLoadModule("/src/components/expert/ExpertMarkdown.tsx"));
 });

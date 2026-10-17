@@ -9,7 +9,7 @@ providers starts a new conversation; the backend rejects cross-provider history.
 
 1. Create a Groq API key in your Groq account.
 2. Open **Settings → AI** and select **Groq** to show its settings.
-3. Enable Groq analysis and enter the separate Groq API key. Click **Refresh
+3. Selecting Groq enables it automatically. Enter the separate Groq API key. Click **Refresh
    models** to save the key and load active model IDs from Groq. Choose a chat
    model that supports function calling. Listing alone does not verify model
    permissions or tool support. The initial editable model ID is
@@ -105,6 +105,15 @@ stopping unrelated provider services.
   model does not mean that saving the API key failed.
 - **Rate/usage limit:** check Groq limits/billing and retry later; OSCAR does not
   retry indefinitely or switch providers automatically.
+- **Request too large (HTTP 413):** shorten a 90-day trend to 30 or 7 days,
+  or start a new conversation to remove previous context. OSCAR keeps your
+  selected range intact; model/account request limits can be lower than the
+  application's 90-day range limit.
+- **Processing failure (HTTP 422):** Groq could not process the request or
+  generated tool call. Retry or choose another tool-capable model.
+- **Service/gateway failure (HTTP 500/502/503/504):** retry later; HTTP 504 may
+  also benefit from a shorter trend. Capacity failures show HTTP 498. Errors
+  include their HTTP status without exposing the provider response body.
 - **Tool request rejected:** verify exact selected dates, missing coverage and
   range/window limits. The model cannot broaden the selected periods.
 - **Partial answer or timeout:** the answer is incomplete. Shorten the range or
@@ -116,4 +125,5 @@ behavior, latency, rate limits, retention settings and Windows UI/keychain
 acceptance remain real-machine checks. See [recorded validation](OSCAR-AI-VALIDATION.md).
 
 Implementation follows the official [local tool calling guide](https://console.groq.com/docs/tool-use/local-tool-calling)
-and [API reference](https://console.groq.com/docs/api-reference).
+and [API reference](https://console.groq.com/docs/api-reference). HTTP failure
+classification follows [Groq's error documentation](https://console.groq.com/docs/errors).
